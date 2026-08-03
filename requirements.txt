@@ -1,0 +1,6 @@
+jupyter 
+torch
+torchvision
+datasets
+numpy
+huggingface_hub
