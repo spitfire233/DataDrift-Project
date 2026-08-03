@@ -5,7 +5,7 @@ ImageNet-R test split
 """
 
 import os
-from datasets import load_dataset
+from datasets import load_dataset, get_dataset_split_names, get_dataset_config_names
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,9 +27,9 @@ def main():
     
     logger.info("Successfully loaded imagenet-r")
     logger.info("Loading imagenet-1k from huggingface")
-    
+     
     try:
-        imagenet_1k_dataset = load_dataset("ILSVRC/imagenet-1k", split="validation")
+        imagenet_1k_dataset = load_dataset("ILSVRC/imagenet-1k", data_files={"validation": "data/validation-*"}, split="validation")
     except Exception as e:
         logger.error("Failed to load imagenet-1k. Have you logged in from CLI with hf auth login?")
         print(e)
