@@ -218,4 +218,5 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Others
+original_datasets/
 preprocessed_datasets/
