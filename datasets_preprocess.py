@@ -34,17 +34,24 @@ def load_sysnet_mapping(path):
     return wnid_to_idx, idx_to_wnid, idx_to_desc
 
 def main():
-    # Create folder to hold the preprocessed dataset; delete it if already present to ensure
+    # Create folders to hold the original and preprocessed dataset; delete them if already present to ensure
     # fresh start
-    save_folder = Path("./preprocessed_datasets")
-    if save_folder.exists():
-        shutil.rmtree(save_folder)    
-    save_folder.mkdir()
+    original_save_folder = Path("./original_datasets")
+    if original_save_folder.exists():
+        shutil.rmtree(original_save_folder)
+    original_save_folder.mkdir()
+    
+    preprocessed_save_folder = Path("./preprocessed_datasets")
+    if preprocessed_save_folder.exists():
+        shutil.rmtree(preprocessed_save_folder)    
+    preprocessed_save_folder.mkdir()
     
     # Get the imagenet-r dataset from hugging face:
     logger.info("Loading imagenet-r from huggingface")
     imagenet_r_dataset = load_dataset("axiong/imagenet-r", split="test")
-    logger.info("Successfully loaded imagenet-r")    
+    logger.info("Successfully loaded imagenet-r, saving to disk...")
+    
+    imagenet_r_dataset.save_to_disk(original_save_folder / "imagenet_r")    
     
     # Download only the validation split of the imagenet-1k.
     # To do this, we have to avoid using the dataset builder provided by the challenge
@@ -60,6 +67,8 @@ def main():
         },
         split="validation"
     )
+    logger.info("Successfully loaded imagenet-1k, saving to disk...")
+    imagenet_1k_dataset.save_to_disk(original_save_folder / "imagenet-1k")
     
     # Load the imagenet_sysnet_mapping
     wnid_to_idx, idx_to_wnid, idx_to_desc = load_sysnet_mapping("LOC_sysnet_mapping.txt")
@@ -98,8 +107,8 @@ def main():
         lambda example: example["label"] in overlap_indices,
         desc="Filtering ImageNet-1k validation to ImageNet-R's 200 overlapping classes"
     )
-    imagenet_1k_dataset_preprocessed.save_to_disk(save_folder / "imagenet_1k_preprocessed")
-    imagenet_r_dataset_preprocessed.save_to_disk(save_folder / "imagenet_r_preprocessed")
+    imagenet_1k_dataset_preprocessed.save_to_disk(preprocessed_save_folder / "imagenet_1k_preprocessed")
+    imagenet_r_dataset_preprocessed.save_to_disk(preprocessed_save_folder / "imagenet_r_preprocessed")
     
 if __name__ == "__main__":
     logging.basicConfig(filename = "dataset_preprocess.log", level = logging.INFO)
