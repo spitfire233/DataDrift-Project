@@ -6,3 +6,7 @@ numpy
 huggingface_hub
 matplotlib
 scipy
+tensorflow
+scikit-learn
+tqdm
+pillow
