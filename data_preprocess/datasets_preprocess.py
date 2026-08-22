@@ -94,7 +94,7 @@ def main():
     
     # Add a column with the imagent-1k index label:
     imagenet_r_dataset_preprocessed = imagenet_r_dataset.map(
-        lambda example: {"ik_label": wnid_to_idx[example["wnid"]]},
+        lambda example: {"label": wnid_to_idx[example["wnid"]]},
         desc="Mapping ImageNet-R wnids to ImageNet-1k label indices"
     )
     
