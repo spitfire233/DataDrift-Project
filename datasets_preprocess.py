@@ -111,5 +111,5 @@ def main():
     imagenet_r_dataset_preprocessed.save_to_disk(preprocessed_save_folder / "imagenet_r_preprocessed")
     
 if __name__ == "__main__":
-    logging.basicConfig(filename = "dataset_preprocess.log", level = logging.INFO)
+    logging.basicConfig(level = logging.INFO)
     main()
