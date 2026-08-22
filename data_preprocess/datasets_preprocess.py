@@ -36,12 +36,12 @@ def load_sysnet_mapping(path):
 def main():
     # Create folders to hold the original and preprocessed dataset; delete them if already present to ensure
     # fresh start
-    original_save_folder = Path("./original_datasets")
+    original_save_folder = Path("../original_datasets")
     if original_save_folder.exists():
         shutil.rmtree(original_save_folder)
     original_save_folder.mkdir()
     
-    preprocessed_save_folder = Path("./preprocessed_datasets")
+    preprocessed_save_folder = Path("../preprocessed_datasets")
     if preprocessed_save_folder.exists():
         shutil.rmtree(preprocessed_save_folder)    
     preprocessed_save_folder.mkdir()
@@ -71,7 +71,7 @@ def main():
     imagenet_1k_dataset.save_to_disk(original_save_folder / "imagenet-1k")
     
     # Load the imagenet_sysnet_mapping
-    wnid_to_idx, idx_to_wnid, idx_to_desc = load_sysnet_mapping("LOC_sysnet_mapping.txt")
+    wnid_to_idx, idx_to_wnid, idx_to_desc = load_sysnet_mapping("../LOC_sysnet_mapping.txt")
     
     # Check for mismatches between the sysnet mapping and the HF dataset
     # 1 expected: crane (bird) with crane2 (construction machine)
