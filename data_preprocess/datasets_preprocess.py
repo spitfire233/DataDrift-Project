@@ -3,11 +3,17 @@ This file contains scripts that handle the
 preprocessing of the datasets
 """
 
+# TODO:
+# - Tagliare le classi di ImageNet-R
+# - Pre-processing Imagenet-C in un dataset utilizzabile
+
+
 import os
 from datasets import load_dataset
 import logging
 from pathlib import Path
 import shutil
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +38,23 @@ def load_sysnet_mapping(path):
             idx_to_wnid[idx] = wnid
             idx_to_desc[idx] = description
     return wnid_to_idx, idx_to_wnid, idx_to_desc
+
+def cap_examples_per_class(dataset, label_column = "label", max_per_class = 50):
+    """
+    Return a new dataset with a maximum of 50 examples per class
+    """
+    indices_per_class = defaultdict(list)
+
+    for i, label in enumerate(dataset[label_column]):
+        if len(indices_per_class[label]) < max_per_class:
+            indices_per_class[label].append(i)
+
+    # Get the selected indices
+    selected_indices = [i for indices in indices_per_class.values() for i in indices]
+    selected_indices.sort()
+    # Return a view of the dataset with exactly 50 examples per class
+    return dataset.select(selected_indices)
+
 
 def main():
     # Create folders to hold the original and preprocessed dataset; delete them if already present to ensure
@@ -97,6 +120,13 @@ def main():
         lambda example: {"label": wnid_to_idx[example["wnid"]]},
         desc="Mapping ImageNet-R wnids to ImageNet-1k label indices"
     )
+
+    # Cut imagenet-r to 50 examples per class:
+    imagenet_r_dataset_preprocessed = cap_examples_per_class(
+        imagenet_r_dataset_preprocessed, label_column="label", max_per_class=50
+    )
+
+    logger.info(f"ImageNet-R cut to {len(imagenet_r_dataset_preprocessed)} examples")
     
     # Imagenet-1k preprocessing: filter down the dataset to only the 200
     # classes contained in imagenet-r
