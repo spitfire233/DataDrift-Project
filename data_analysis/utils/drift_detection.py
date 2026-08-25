@@ -129,7 +129,6 @@ def plot_image_property_drift(
     label_b="Comparison",
     image_col="image",
     max_samples=None,
-    save_path=None,
 ):
     """
     Analisi del drift su proprietà visive tra due dataset HuggingFace.
@@ -141,8 +140,6 @@ def plot_image_property_drift(
     image_col : str
     max_samples : int | None
         Limita il campione per velocità. None = intero dataset.
-    save_path : str | None
-        Path dove salvare il plot (es. "drift.png"). None = non salva.
  
     Returns
     -------
