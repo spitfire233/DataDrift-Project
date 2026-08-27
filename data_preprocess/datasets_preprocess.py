@@ -3,18 +3,13 @@ This file contains scripts that handle the
 preprocessing of the datasets
 """
 
-# TODO:
-# - Tagliare le classi di ImageNet-R
-# - Pre-processing Imagenet-C in un dataset utilizzabile
-
-
 import os
 from datasets import load_dataset
 import logging
 from pathlib import Path
 import shutil
 from utils.datasets_utils import load_sysnet_mapping, cap_examples_per_class
-from utils.imagenet_c_utils import download_and_extract_imagenet_c, build_imagenet_c_dataset
+from utils.imagenet_c_utils import download_and_extract_imagenet_c, build_imagenet_c_datasets
 
 
 logger = logging.getLogger(__name__)
@@ -26,14 +21,12 @@ def main():
     # Create folders to hold the original and preprocessed dataset; delete them if already present to ensure
     # fresh start
     original_save_folder = Path("../original_datasets")
-    if original_save_folder.exists():
-        shutil.rmtree(original_save_folder)
-    original_save_folder.mkdir()
+    if not original_save_folder.exists():
+        original_save_folder.mkdir()
     
     preprocessed_save_folder = Path("../preprocessed_datasets")
-    if preprocessed_save_folder.exists():
-        shutil.rmtree(preprocessed_save_folder)    
-    preprocessed_save_folder.mkdir()
+    if not preprocessed_save_folder.exists():
+        preprocessed_save_folder.mkdir()
     
     # Get the imagenet-r dataset from hugging face:
     logger.info("Loading imagenet-r from huggingface")
@@ -63,11 +56,22 @@ def main():
     wnid_to_idx, idx_to_wnid, idx_to_desc = load_sysnet_mapping("../LOC_sysnet_mapping.txt")
 
 
-    # Download imagenet-c from the official website and build the dataset:
-    logger.info("Downloading imagenet-C. This may take a while!")
-    imagenet_c_dataset = download_and_extract_imagenet_c(original_save_folder)
-    imagenet_c_dataset = build_imagenet_c_dataset(imagenet_c_dataset, wnid_to_idx)
-    imagenet_c_dataset.save_to_disk(original_save_folder / "imagenet_c_dataset")
+    # Download imagenet-c from the official website and build multiple datasets based on type of noise
+    # and severity
+    logger.info("Downloading imagenet-C. This will take a long time!")
+    imagenet_c_extracted_folder = download_and_extract_imagenet_c(original_save_folder)
+    imagenet_c_datasets = build_imagenet_c_datasets(imagenet_c_extracted_folder, wnid_to_idx)
+
+    # Save the datasets to disk
+    imagenet_c_save_folder = original_save_folder / "imagenet_c_datasets"
+    imagenet_c_save_folder.mkdir(exist_ok=True)
+
+    for key, dataset in imagenet_c_datasets.items():
+        dataset_save_path = imagenet_c_save_folder / key
+        if dataset_save_path.exists():
+            logger.info(f"{key} already saved to disk, skipping")
+            continue
+        dataset.save_to_disk(dataset_save_path)
     
     # Check for mismatches between the sysnet mapping and the HF dataset
     # 1 expected: crane (bird) with crane2 (construction machine)
