@@ -1,4 +1,6 @@
 import torch
+import numpy as np
+import pandas as pd
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
@@ -7,20 +9,26 @@ from sklearn.metrics import (
     cohen_kappa_score,
 )
 from tqdm import tqdm
-import numpy as np
-@torch.no_grad  # Disables gradient calculation at runtime
-def run_inference(model, dataloader, device, k=5):
+from model_testing.model import extract_resnet50_features
+
+
+@torch.no_grad()
+def run_inference(model, dataloader, device, k=5, return_features=False):
     """
     Runs the inference of the model on the dataset and collects
-    the true labels, prediction, top-1 and top-k
+    the true labels, prediction, top-1 and top-k.
+
+    If return_features=True, also returns the penultimate-layer
+    features used by the classifier.
     """
     all_labels = []
     all_top1_preds = []
     all_topk_correct = []
+    all_features = []
 
-    for images, labels in tqdm(dataloader, desc="Baseline inference on imagenet-1k"):
+    for images, labels in tqdm(dataloader, desc="Model inference"):
         images = images.to(device)
-        logits = model(images)
+        features, logits = extract_resnet50_features(model, images)
         topk_preds = logits.topk(k, dim=1).indices.cpu()
 
         top1_preds = topk_preds[:, 0]
@@ -29,12 +37,19 @@ def run_inference(model, dataloader, device, k=5):
         all_labels.append(labels)
         all_top1_preds.append(top1_preds)
         all_topk_correct.append(topk_correct)
+        if return_features:
+            all_features.append(features.cpu())
 
-    return (
+    outputs = (
         torch.cat(all_labels).numpy(),
         torch.cat(all_top1_preds).numpy(),
         torch.cat(all_topk_correct).numpy(),
     )
+
+    if return_features:
+        outputs = outputs + (torch.cat(all_features).numpy(),)
+
+    return outputs
 
 
 def compute_metrics(y_true, y_pred, topk_correct):
@@ -196,3 +211,8 @@ def compute_metrics(y_true, y_pred, topk_correct):
         "mean_samples_per_class": mean_samples_per_class,
         "std_samples_per_class": std_samples_per_class,
     }
+def save_features_csv(features, labels, preds, output_path):
+    df = pd.DataFrame(features, columns=[f"feature_{i}" for i in range(features.shape[1])])
+    df.insert(0, "prediction", preds)
+    df.insert(0, "label", labels)
+    df.to_csv(output_path, index=False)

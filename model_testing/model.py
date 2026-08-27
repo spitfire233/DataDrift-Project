@@ -20,6 +20,30 @@ def build_model_and_transforms():
     return model, preprocess
 
 
+def extract_resnet50_features(model, images):
+    """
+    Extracts the penultimate-layer features from ResNet50.
+
+    Returns:
+        features: output of the flatten operation after avgpool
+        logits: final classification scores produced by the fc layer
+    """
+    x = model.conv1(images)
+    x = model.bn1(x)
+    x = model.relu(x)
+    x = model.maxpool(x)
+
+    x = model.layer1(x)
+    x = model.layer2(x)
+    x = model.layer3(x)
+    x = model.layer4(x)
+
+    x = model.avgpool(x)
+    features = torch.flatten(x, 1)
+    logits = model.fc(features)
+    return features, logits
+
+
 class CollateFn:
     """
     Collate function che applica il preprocessing del modello a ogni immagine.
