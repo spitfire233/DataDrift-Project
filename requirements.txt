@@ -12,6 +12,3 @@ tqdm
 pillow
 pandas
 seaborn
-collections
-tarfile
-urllib
