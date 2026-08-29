@@ -299,7 +299,32 @@ def main():
 
     # Step 4: Process each dataset
     print("\nStep 4: Processing datasets...")
+
+    print("\nProcessing original dataset...")
+    IMAGENET_1K_DATASET_PATH = Path("../original_datasets/imagenet_1k")
+    if not IMAGENET_1K_DATASET_PATH.exists():
+        raise FileNotFoundError(
+            f"Preprocessed dataset not found in {IMAGENET_1K_DATASET_PATH}. "
+            "Please, execute the preprocessing script first."
+        )
+    dataset_base = load_from_disk(str(IMAGENET_1K_DATASET_PATH))
+    dataloader_base = DataLoader(
+        dataset_base,
+        batch_size=BATCH_SIZE,
+        shuffle=False,
+        num_workers=NUM_WORKERS,
+        collate_fn=CollateFn(preprocess=preprocess),
+    )
+    y_true_base, y_pred_base, topk_correct_base, features_base = run_inference(
+        model, dataloader_base, device, k=TOP_K, return_features=True
+    )
+    metrics_base = compute_metrics(y_true_base, y_pred_base, topk_correct_base)
+    save_features_csv(features_base, y_true_base, y_pred_base, "../results/ImageNetC/baseline_features.csv")
+    with open(Path("../results/ImageNetC/baseline_metrics.json"), "w") as f:
+        json.dump(metrics_base, f, indent=2)
+
     results = []
+    print("\nProcessing ImageNetC datasets...")
 
     for i, dataset_info in enumerate(datasets, 1):
         print(f"\n[{i}/{len(datasets)}]", end="")
