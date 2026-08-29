@@ -263,142 +263,6 @@ def verify_folder_structure(base_output_dir):
                 num_images = len(list(level_folder.glob('*')))
                 print(f"  {level_folder.name}: {num_images} images")
 
-
-# ============================================================================
-# METADATA GENERATION
-# ============================================================================
-
-def create_metadata(base_output_dir, output_file='metadata.json'):
-    """
-    Create a JSON metadata file with dataset information
-    """
-    base_output_dir = Path(base_output_dir)
-
-    metadata = {
-        'dataset_name': 'ImageNet-C (Organized)',
-        'source': 'https://github.com/hendrycks/robustness',
-        'organization_date': datetime.now().isoformat(),
-        'total_images': 0,
-        'corruption_types': {},
-        'severity_levels': list(range(1, 6)),
-        'folder_structure': {}
-    }
-
-    for corruption_folder in sorted(base_output_dir.iterdir()):
-        if not corruption_folder.is_dir():
-            continue
-
-        corruption_type = corruption_folder.name
-        metadata['corruption_types'][corruption_type] = {
-            'levels': {},
-            'total_images': 0
-        }
-
-        for level_folder in sorted(corruption_folder.iterdir()):
-            if level_folder.is_dir():
-                images = list(level_folder.glob('*'))
-                num_images = len(images)
-
-                level_name = level_folder.name
-                metadata['corruption_types'][corruption_type]['levels'][level_name] = {
-                    'count': num_images,
-                    'path': str(level_folder.relative_to(base_output_dir))
-                }
-
-                metadata['corruption_types'][corruption_type]['total_images'] += num_images
-                metadata['total_images'] += num_images
-
-    # Save metadata
-    metadata_path = base_output_dir / output_file
-    with open(metadata_path, 'w') as f:
-        json.dump(metadata, f, indent=2)
-
-    print(f"\n✓ Metadata saved to: {metadata_path}")
-
-    return metadata
-
-
-def generate_summary_report(base_output_dir, output_file='SUMMARY.txt'):
-    """
-    Generate a comprehensive summary report
-    """
-    base_output_dir = Path(base_output_dir)
-
-    report = []
-    report.append("=" * 70)
-    report.append("IMAGENET-C DATASET ORGANIZATION SUMMARY")
-    report.append("=" * 70)
-    report.append("")
-
-    report.append(f"Output Directory: {base_output_dir.absolute()}")
-    report.append("")
-
-    report.append("DATASET STRUCTURE:")
-    report.append("-" * 70)
-
-    total_images = 0
-
-    for corruption_folder in sorted(base_output_dir.iterdir()):
-        if not corruption_folder.is_dir():
-            continue
-
-        corruption_type = corruption_folder.name
-        type_total = 0
-
-        report.append(f"\n{corruption_type.upper()}:")
-
-        for level_folder in sorted(corruption_folder.iterdir()):
-            if level_folder.is_dir():
-                num_images = len(list(level_folder.glob('*')))
-                type_total += num_images
-                total_images += num_images
-                report.append(f"  {level_folder.name}: {num_images} images")
-
-        report.append(f"  Subtotal: {type_total} images")
-
-    report.append("")
-    report.append("-" * 70)
-    report.append(f"TOTAL IMAGES: {total_images}")
-    report.append("=" * 70)
-
-    report.append("")
-    report.append("FILES GENERATED:")
-    report.append("  - metrics for each corruption/severity")
-    report.append("  - features for each corruption/severity")
-
-    # Save report
-    report_path = base_output_dir / output_file
-    with open(report_path, 'w') as f:
-        f.write('\n'.join(report))
-
-    print('\n'.join(report))
-    print(f"\n✓ Summary report saved to: {report_path}")
-
-
-# ============================================================================
-# DATA LOADER UTILITIES
-# ============================================================================
-
-def create_data_loader_script(output_dir):
-    """
-    Create a Python script for easy data loading
-    """
-    # This is now handled by model_testing.utils functions
-    pass
-
-
-# ============================================================================
-# VISUALIZATION
-# ============================================================================
-
-def create_sample_visualization(base_output_dir, num_samples=12):
-    """
-    Create a visualization showing sample images from each corruption type
-    """
-    # This can be implemented later if needed
-    pass
-
-
 # ============================================================================
 # MAIN EXECUTION
 # ============================================================================
@@ -435,7 +299,32 @@ def main():
 
     # Step 4: Process each dataset
     print("\nStep 4: Processing datasets...")
+
+    print("\nProcessing original dataset...")
+    IMAGENET_1K_DATASET_PATH = Path("../original_datasets/imagenet_1k")
+    if not IMAGENET_1K_DATASET_PATH.exists():
+        raise FileNotFoundError(
+            f"Preprocessed dataset not found in {IMAGENET_1K_DATASET_PATH}. "
+            "Please, execute the preprocessing script first."
+        )
+    dataset_base = load_from_disk(str(IMAGENET_1K_DATASET_PATH))
+    dataloader_base = DataLoader(
+        dataset_base,
+        batch_size=BATCH_SIZE,
+        shuffle=False,
+        num_workers=NUM_WORKERS,
+        collate_fn=CollateFn(preprocess=preprocess),
+    )
+    y_true_base, y_pred_base, topk_correct_base, features_base = run_inference(
+        model, dataloader_base, device, k=TOP_K, return_features=True
+    )
+    metrics_base = compute_metrics(y_true_base, y_pred_base, topk_correct_base)
+    save_features_csv(features_base, y_true_base, y_pred_base, "../results/ImageNetC/baseline_features.csv")
+    with open(Path("../results/ImageNetC/baseline_metrics.json"), "w") as f:
+        json.dump(metrics_base, f, indent=2)
+
     results = []
+    print("\nProcessing ImageNetC datasets...")
 
     for i, dataset_info in enumerate(datasets, 1):
         print(f"\n[{i}/{len(datasets)}]", end="")
