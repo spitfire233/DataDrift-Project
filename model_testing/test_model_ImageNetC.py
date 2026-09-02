@@ -11,7 +11,14 @@ from torch.utils.data import DataLoader
 from datasets import DatasetDict, load_from_disk
 
 from model_testing.model import CollateFn, build_model_and_transforms, get_device
-from model_testing.utils import run_inference, compute_metrics, save_features_csv
+from model_testing.utils import (
+    run_inference,
+    compute_metrics,
+    save_features_csv,
+    run_repeated_evaluation,
+    run_repeated_evaluation_full_forward,
+)
+from torchvision import transforms
 
 
 # ============================================================================
@@ -21,6 +28,7 @@ from model_testing.utils import run_inference, compute_metrics, save_features_cs
 BATCH_SIZE = 64
 NUM_WORKERS = 4
 TOP_K = 5
+RUNS = 5
 
 DATASET_BASE_PATH = Path("../original_datasets/imagenet_c_datasets")
 RESULTS_BASE_PATH = Path("../results/ImageNetC")
@@ -173,26 +181,49 @@ def process_single_dataset(model, device, preprocess, dataset_info, results_base
 
     print(f"✓ Dataset loaded ({len(dataset)} samples)")
 
-    # Run inference
-    print(f"Running inference...")
+    # Run a representative inference to collect features for later inspection
+    print(f"Running inference (representative run)...")
     y_true, y_pred, topk_correct, features = run_inference(
         model, dataloader, device, k=TOP_K, return_features=True
     )
 
-    # Compute metrics
+    # Compute single-run metrics (for quick logging)
     metrics = compute_metrics(y_true, y_pred, topk_correct)
 
-    print(f"\nMetrics:")
+    print(f"\nMetrics (representative run):")
     for key, value in metrics.items():
         print(f"  {key}: {value:.4f}")
 
-    # Save metrics
+    # Compute repeated-run statistics (mean, std, CI)
+    # Use full forward repeated evaluation (stochastic augmentations applied per run)
+    # Define a light augment function to introduce stochasticity across runs
+    augment_pipeline = transforms.Compose([
+        transforms.RandomResizedCrop(224, scale=(0.9, 1.0)),
+        transforms.ColorJitter(brightness=0.08, contrast=0.08, saturation=0.05, hue=0.02),
+    ])
+
+    def augment_fn(pil_img):
+        return augment_pipeline(pil_img)
+
+    metrics_stats = run_repeated_evaluation_full_forward(
+        model,
+        dataset,
+        device,
+        runs=RUNS,
+        k=TOP_K,
+        batch_size=BATCH_SIZE,
+        num_workers=NUM_WORKERS,
+        preprocess=preprocess,
+        augment_fn=augment_fn,
+    )
+
+    # Save aggregated metrics (with CIs)
     metrics_path = output_dir / f"{folder_name}_metrics.json"
     with open(metrics_path, 'w') as f:
-        json.dump(metrics, f, indent=2)
-    print(f"✓ Metrics saved to: {metrics_path}")
+        json.dump(metrics_stats, f, indent=2)
+    print(f"✓ Metrics (with CIs) saved to: {metrics_path}")
 
-    # Save features
+    # Save representative features
     features_path = output_dir / f"{folder_name}_features.csv"
     save_features_csv(features, y_true, y_pred, str(features_path))
     print(f"✓ Features saved to: {features_path}")
@@ -301,7 +332,7 @@ def main():
     print("\nStep 4: Processing datasets...")
 
     print("\nProcessing original dataset...")
-    IMAGENET_1K_DATASET_PATH = Path("../original_datasets/imagenet_1k")
+    IMAGENET_1K_DATASET_PATH = Path("../original_datasets/imagenet-1k")
     if not IMAGENET_1K_DATASET_PATH.exists():
         raise FileNotFoundError(
             f"Preprocessed dataset not found in {IMAGENET_1K_DATASET_PATH}. "
@@ -315,13 +346,36 @@ def main():
         num_workers=NUM_WORKERS,
         collate_fn=CollateFn(preprocess=preprocess),
     )
+
+    # Representative run to save features
     y_true_base, y_pred_base, topk_correct_base, features_base = run_inference(
         model, dataloader_base, device, k=TOP_K, return_features=True
     )
     metrics_base = compute_metrics(y_true_base, y_pred_base, topk_correct_base)
     save_features_csv(features_base, y_true_base, y_pred_base, "../results/ImageNetC/baseline_features.csv")
+
+    # Repeated evaluation to compute CIs (full forward with stochastic augmentations)
+    augment_pipeline = transforms.Compose([
+        transforms.RandomResizedCrop(224, scale=(0.9, 1.0)),
+        transforms.ColorJitter(brightness=0.08, contrast=0.08, saturation=0.05, hue=0.02),
+    ])
+
+    def augment_fn(pil_img):
+        return augment_pipeline(pil_img)
+
+    metrics_stats_base = run_repeated_evaluation_full_forward(
+        model,
+        dataset_base,
+        device,
+        runs=RUNS,
+        k=TOP_K,
+        batch_size=BATCH_SIZE,
+        num_workers=NUM_WORKERS,
+        preprocess=preprocess,
+        augment_fn=augment_fn,
+    )
     with open(Path("../results/ImageNetC/baseline_metrics.json"), "w") as f:
-        json.dump(metrics_base, f, indent=2)
+        json.dump(metrics_stats_base, f, indent=2)
 
     results = []
     print("\nProcessing ImageNetC datasets...")

@@ -95,7 +95,7 @@ def aggregate_corruption_metrics(results_path="../results/ImageNetC"):
 
     data = []
 
-    # Load baseline metrics
+    # Load baseline metrics (support both legacy scalar and new dict-with-stats format)
     baseline_file = results_path / "baseline_metrics.json"
     if baseline_file.exists():
         print(f"Loading baseline metrics from {baseline_file}...")
@@ -103,11 +103,23 @@ def aggregate_corruption_metrics(results_path="../results/ImageNetC"):
             baseline_metrics = json.load(f)
 
         for metric_name, metric_value in baseline_metrics.items():
+            # If metric_value is a dict produced by compute_metrics_ci, extract the mean
+            if isinstance(metric_value, dict) and 'mean' in metric_value:
+                mean_val = metric_value.get('mean')
+                ci_lower = metric_value.get('ci_lower')
+                ci_upper = metric_value.get('ci_upper')
+            else:
+                mean_val = metric_value
+                ci_lower = None
+                ci_upper = None
+
             data.append({
                 'corruption_type': 'baseline',
                 'severity': 0,
                 'metric_name': metric_name,
-                'metric_value': metric_value
+                'metric_value': mean_val,
+                'metric_ci_lower': ci_lower,
+                'metric_ci_upper': ci_upper
             })
 
     # Scan subdirectories (blur, digital, noise, weather)
@@ -142,13 +154,24 @@ def aggregate_corruption_metrics(results_path="../results/ImageNetC"):
                         
                         with open(metrics_file, 'r') as f:
                             metrics = json.load(f)
-                        
+
                         for metric_name, metric_value in metrics.items():
+                            if isinstance(metric_value, dict) and 'mean' in metric_value:
+                                mean_val = metric_value.get('mean')
+                                ci_lower = metric_value.get('ci_lower')
+                                ci_upper = metric_value.get('ci_upper')
+                            else:
+                                mean_val = metric_value
+                                ci_lower = None
+                                ci_upper = None
+
                             data.append({
                                 'corruption_type': corruption_type,
                                 'severity': severity,
                                 'metric_name': metric_name,
-                                'metric_value': metric_value
+                                'metric_value': mean_val,
+                                'metric_ci_lower': ci_lower,
+                                'metric_ci_upper': ci_upper
                             })
                     except ValueError as e:
                         print(f"    Error parsing {filename}: {e}")
@@ -226,15 +249,21 @@ def plot_corruption_metrics(results_path="../results/ImageNetC", corruption_type
             print(f"  {i}. {corruption}")
         return
     
-    # Load baseline metrics
+    # Load baseline metrics (support dict-with-stats)
     baseline_value = None
+    baseline_ci = (None, None)
     baseline_file = results_path / "baseline_metrics.json"
     if baseline_file.exists():
         with open(baseline_file, 'r') as f:
             baseline_metrics = json.load(f)
             if metric_name in baseline_metrics:
-                baseline_value = baseline_metrics[metric_name]
-    
+                m = baseline_metrics[metric_name]
+                if isinstance(m, dict) and 'mean' in m:
+                    baseline_value = m.get('mean')
+                    baseline_ci = (m.get('ci_lower'), m.get('ci_upper'))
+                else:
+                    baseline_value = m
+
     # Find and load only files for this corruption type
     data = []
     found = False
@@ -257,9 +286,21 @@ def plot_corruption_metrics(results_path="../results/ImageNetC", corruption_type
                             metrics = json.load(f)
                         
                         if metric_name in metrics:
+                            mv = metrics[metric_name]
+                            if isinstance(mv, dict) and 'mean' in mv:
+                                val = mv.get('mean')
+                                ci_l = mv.get('ci_lower')
+                                ci_u = mv.get('ci_upper')
+                            else:
+                                val = mv
+                                ci_l = None
+                                ci_u = None
+
                             data.append({
                                 'severity': severity,
-                                metric_name: metrics[metric_name]
+                                metric_name: val,
+                                'ci_lower': ci_l,
+                                'ci_upper': ci_u
                             })
                             found = True
                     except ValueError:
@@ -279,16 +320,31 @@ def plot_corruption_metrics(results_path="../results/ImageNetC", corruption_type
     
     severities = [d['severity'] for d in data]
     values = [d[metric_name] for d in data]
-    
+    ci_lows = [d.get('ci_lower') for d in data]
+    ci_ups = [d.get('ci_upper') for d in data]
+
     # Create figure
     fig, ax = plt.subplots(figsize=(10, 6))
     
     ax.plot(severities, values, marker='o', linewidth=2, markersize=10, label=corruption_type)
-    
+
+    # If CI bounds are available, plot shaded area
+    if any(ci_lows) and any(ci_ups):
+        # convert Nones to nan to avoid errors
+        import numpy as _np
+        lower = _np.array([x if x is not None else _np.nan for x in ci_lows], dtype=float)
+        upper = _np.array([x if x is not None else _np.nan for x in ci_ups], dtype=float)
+        ax.fill_between(severities, lower, upper, color='C0', alpha=0.2)
+
     # Aggiungi linea baseline se esiste
     if baseline_value is not None:
         ax.axhline(y=baseline_value, color='r', linestyle='--', linewidth=2, label='Baseline', alpha=0.7)
-    
+        # If baseline CI available, shade it
+        if baseline_ci[0] is not None and baseline_ci[1] is not None:
+            import numpy as _np
+            ax.fill_between([0, 6], [baseline_ci[0], baseline_ci[0]], [baseline_ci[1], baseline_ci[1]],
+                            color='r', alpha=0.08)
+
     ax.set_xlabel('Severity', fontsize=12)
     ax.set_ylabel(metric_name, fontsize=12)
     ax.set_title(f"{corruption_type.replace('_', ' ').title()} - {metric_name.replace('_', ' ').title()} vs Severity", 
@@ -342,15 +398,21 @@ def plot_corruption_category(results_path="../results/ImageNetC", category=None,
     else:
         corruptions_to_plot = category  # Assume it's a list
     
-    # Load baseline
+    # Load baseline (support dict-with-stats)
     baseline_value = None
+    baseline_ci = (None, None)
     baseline_file = results_path / "baseline_metrics.json"
     if baseline_file.exists():
         with open(baseline_file, 'r') as f:
             baseline_metrics = json.load(f)
             if metric_name in baseline_metrics:
-                baseline_value = baseline_metrics[metric_name]
-    
+                m = baseline_metrics[metric_name]
+                if isinstance(m, dict) and 'mean' in m:
+                    baseline_value = m.get('mean')
+                    baseline_ci = (m.get('ci_lower'), m.get('ci_upper'))
+                else:
+                    baseline_value = m
+
     # Create figure
     fig, ax = plt.subplots(figsize=(12, 7))
     
@@ -376,9 +438,20 @@ def plot_corruption_category(results_path="../results/ImageNetC", category=None,
                                 metrics = json.load(f)
                             
                             if metric_name in metrics:
+                                mv = metrics[metric_name]
+                                if isinstance(mv, dict) and 'mean' in mv:
+                                    val = mv.get('mean')
+                                    ci_l = mv.get('ci_lower')
+                                    ci_u = mv.get('ci_upper')
+                                else:
+                                    val = mv
+                                    ci_l = None
+                                    ci_u = None
                                 data.append({
                                     'severity': severity,
-                                    metric_name: metrics[metric_name]
+                                    metric_name: val,
+                                    'ci_lower': ci_l,
+                                    'ci_upper': ci_u
                                 })
                         except ValueError:
                             pass
@@ -387,13 +460,42 @@ def plot_corruption_category(results_path="../results/ImageNetC", category=None,
             data = sorted(data, key=lambda x: x['severity'])
             severities = [d['severity'] for d in data]
             values = [d[metric_name] for d in data]
-            ax.plot(severities, values, marker='o', linewidth=2, markersize=8, 
-                   label=corruption_type.replace('_', ' ').title())
-    
+            ci_lows = [d.get('ci_lower') for d in data]
+            ci_ups = [d.get('ci_upper') for d in data]
+
+            line, = ax.plot(severities, values, marker='o', linewidth=2, markersize=8,
+                            label=corruption_type.replace('_', ' ').title())
+
+            if any(v is not None for v in ci_lows) and any(v is not None for v in ci_ups):
+                import numpy as _np
+                lower = _np.array([x if x is not None else _np.nan for x in ci_lows], dtype=float)
+                upper = _np.array([x if x is not None else _np.nan for x in ci_ups], dtype=float)
+                yerr = _np.vstack([
+                    _np.clip(_np.array(values, dtype=float) - lower, a_min=0.0, a_max=None),
+                    _np.clip(upper - _np.array(values, dtype=float), a_min=0.0, a_max=None)
+                ])
+                ax.fill_between(severities, lower, upper, color=line.get_color(), alpha=0.18, zorder=1)
+                ax.errorbar(
+                    severities,
+                    values,
+                    yerr=yerr,
+                    fmt='none',
+                    ecolor=line.get_color(),
+                    elinewidth=1.8,
+                    capsize=5,
+                    capthick=1.8,
+                    alpha=0.95,
+                    zorder=3,
+                )
+
     # Aggiungi linea baseline se esiste
     if baseline_value is not None:
         ax.axhline(y=baseline_value, color='red', linestyle='--', linewidth=2, label='Baseline', alpha=0.7)
-    
+        if baseline_ci[0] is not None and baseline_ci[1] is not None:
+            import numpy as _np
+            ax.fill_between([0, 6], [baseline_ci[0], baseline_ci[0]], [baseline_ci[1], baseline_ci[1]],
+                            color='red', alpha=0.06)
+
     ax.set_xlabel('Severity', fontsize=12)
     ax.set_ylabel(metric_name.replace('_', ' ').title(), fontsize=12)
     category_title = category if isinstance(category, str) else "Custom"
@@ -433,7 +535,11 @@ def calculate_degradation(results_path="../results/ImageNetC", metric_name='accu
 
     with open(baseline_file, 'r') as f:
         baseline_metrics = json.load(f)
-        baseline_value = baseline_metrics.get(metric_name)
+        m = baseline_metrics.get(metric_name)
+        if isinstance(m, dict) and 'mean' in m:
+            baseline_value = m.get('mean')
+        else:
+            baseline_value = m
 
     if baseline_value is None:
         print(f"Metric '{metric_name}' not found in baseline!")
@@ -461,7 +567,12 @@ def calculate_degradation(results_path="../results/ImageNetC", metric_name='accu
                             metrics = json.load(f)
 
                         if metric_name in metrics:
-                            corrupted_value = metrics[metric_name]
+                            mv = metrics[metric_name]
+                            if isinstance(mv, dict) and 'mean' in mv:
+                                corrupted_value = mv.get('mean')
+                            else:
+                                corrupted_value = mv
+
                             degradation = (baseline_value - corrupted_value) / baseline_value
 
                             data.append({
@@ -582,7 +693,7 @@ def degradation_summary(results_path="../results/ImageNetC", metric_name='accura
         DataFrame with columns: corruption_type, AUC, slope, R_squared
     """
     results_path = Path(results_path)
-    
+
     # Load baseline metrics
     baseline_file = results_path / "baseline_metrics.json"
     if not baseline_file.exists():
@@ -591,8 +702,12 @@ def degradation_summary(results_path="../results/ImageNetC", metric_name='accura
 
     with open(baseline_file, 'r') as f:
         baseline_metrics = json.load(f)
-        baseline_value = baseline_metrics.get(metric_name)
-    
+        m = baseline_metrics.get(metric_name)
+        if isinstance(m, dict) and 'mean' in m:
+            baseline_value = m.get('mean')
+        else:
+            baseline_value = m
+
     if baseline_value is None:
         print(f"Metric '{metric_name}' not found in baseline!")
         return None
@@ -633,17 +748,17 @@ def degradation_summary(results_path="../results/ImageNetC", metric_name='accura
     
     for corruption in corruptions_to_analyze:
         data = []
-        
+
         # Scan all categories and files
         for category_dir in sorted(results_path.iterdir()):
             if not category_dir.is_dir():
                 continue
-            
+
             for metrics_file in sorted(category_dir.glob("*_metrics.json")):
                 filename = metrics_file.stem
                 if filename.endswith("_metrics"):
                     filename = filename[:-8]
-                
+
                 if "_sev_" in filename:
                     parts = filename.split("_sev_")
                     if len(parts) == 2 and parts[0] == corruption:
@@ -651,15 +766,19 @@ def degradation_summary(results_path="../results/ImageNetC", metric_name='accura
                             severity = int(parts[1])
                             with open(metrics_file, 'r') as f:
                                 metrics = json.load(f)
-                            
+
                             if metric_name in metrics:
-                                corrupted_value = metrics[metric_name]
-                                
+                                mv = metrics[metric_name]
+                                if isinstance(mv, dict) and 'mean' in mv:
+                                    corrupted_value = mv.get('mean')
+                                else:
+                                    corrupted_value = mv
+
                                 # Robustness = Acc_s / Acc_clean
                                 robustness = corrupted_value / baseline_value
                                 # Degradation = (Acc_clean - Acc_s) / Acc_clean
                                 degradation = (baseline_value - corrupted_value) / baseline_value
-                                
+
                                 data.append({
                                     'severity': severity,
                                     'robustness': robustness,
@@ -671,7 +790,7 @@ def degradation_summary(results_path="../results/ImageNetC", metric_name='accura
         if len(data) > 1:
             data = sorted(data, key=lambda x: x['severity'])
             severities = [d['severity'] for d in data]
-            
+
             # Choose AUC metric based on use_robustness
             if use_robustness:
                 # AUC = average robustness: (1/5) * Σ(Acc_s / Acc_clean)
@@ -681,13 +800,13 @@ def degradation_summary(results_path="../results/ImageNetC", metric_name='accura
                 # AUC on degradation using trapezoid
                 degradation_values = [d['degradation'] for d in data]
                 auc = trapezoid(degradation_values, severities)
-            
+
             # Slope is ALWAYS calculated on degradation
             degradation_values = [d['degradation'] for d in data]
-            
+
             # Calculate slope (always on degradation)
             slope, intercept, r_value, p_value, std_err = linregress(severities, degradation_values)
-            
+
             summary_data.append({
                 'corruption_type': corruption,
                 'AUC': auc,

@@ -10,6 +10,7 @@ from sklearn.metrics import (
 )
 from tqdm import tqdm
 from model_testing.model import extract_resnet50_features
+from torch.utils.data import DataLoader
 
 
 @torch.no_grad()
@@ -65,7 +66,6 @@ def compute_metrics(y_true, y_pred, topk_correct):
         - Micro precision, recall, F1
         - Matthews Correlation Coefficient (MCC)
         - Cohen's Kappa
-        - Dataset/class statistics
 
     Parameters
     ----------
@@ -150,20 +150,6 @@ def compute_metrics(y_true, y_pred, topk_correct):
 
     cohen_kappa = cohen_kappa_score(y_true, y_pred)
 
-    # ============================================================
-    # Class distribution statistics
-    # ============================================================
-
-    min_samples_per_class = int(class_counts[classes].min())
-    max_samples_per_class = int(class_counts[classes].max())
-
-    mean_samples_per_class = float(
-        class_counts[classes].mean()
-    )
-
-    std_samples_per_class = float(
-        class_counts[classes].std()
-    )
 
     return {
         # --------------------------------------------------------
@@ -200,19 +186,182 @@ def compute_metrics(y_true, y_pred, topk_correct):
         "mcc": float(mcc),
         "cohen_kappa": float(cohen_kappa),
 
-        # --------------------------------------------------------
-        # Dataset statistics
-        # --------------------------------------------------------
-        "n_samples": int(n_samples),
-        "n_classes_present": int(n_classes),
-
-        "min_samples_per_class": min_samples_per_class,
-        "max_samples_per_class": max_samples_per_class,
-        "mean_samples_per_class": mean_samples_per_class,
-        "std_samples_per_class": std_samples_per_class,
     }
 def save_features_csv(features, labels, preds, output_path):
     df = pd.DataFrame(features, columns=[f"feature_{i}" for i in range(features.shape[1])])
     df.insert(0, "prediction", preds)
     df.insert(0, "label", labels)
     df.to_csv(output_path, index=False)
+
+
+def compute_metrics_ci(metrics_list, ci=0.95):
+    """
+    Given a list of metrics dictionaries (each produced by `compute_metrics`),
+    compute the mean, standard deviation and confidence interval for each metric.
+
+    Returns a dict mapping metric_name -> {
+        'mean', 'std', 'ci_lower', 'ci_upper', 'values'
+    }
+    """
+    if len(metrics_list) == 0:
+        return {}
+
+    import math
+
+    try:
+        from scipy.stats import t as t_dist
+    except Exception:
+        t_dist = None
+
+    n = len(metrics_list)
+    keys = list(metrics_list[0].keys())
+    stats = {}
+
+    for key in keys:
+        vals = np.array([m[key] for m in metrics_list], dtype=float)
+        mean = float(vals.mean())
+        # sample std (ddof=1) if possible
+        std = float(vals.std(ddof=1)) if n > 1 else 0.0
+        se = float(std / math.sqrt(n)) if n > 1 else 0.0
+
+        if n > 1:
+            if t_dist is not None:
+                tcrit = float(t_dist.ppf((1 + ci) / 2.0, df=n - 1))
+            else:
+                # fallback: normal approximation
+                # 1.96 is approximate for 95% CI
+                if abs(ci - 0.95) < 1e-6:
+                    tcrit = 1.959963984540054
+                else:
+                    tcrit = 1.96
+            ci_lower = mean - tcrit * se
+            ci_upper = mean + tcrit * se
+        else:
+            ci_lower = mean
+            ci_upper = mean
+
+        stats[key] = {
+            "mean": mean,
+            "std": std,
+            "ci_lower": float(ci_lower),
+            "ci_upper": float(ci_upper),
+            "values": vals.tolist(),
+        }
+
+    return stats
+
+
+def run_repeated_evaluation(model, dataloader, device, runs=5, k=5, features=None, y_true=None):
+    """
+    Run inference `runs` times on the provided dataloader, compute metrics for each
+    run and aggregate them returning confidence-interval statistics.
+
+    The function returns the result of `compute_metrics_ci` applied to the list of
+    per-run metrics.
+    """
+    # Strategy to minimize runtime:
+    # 1) Run a single pass over the dataloader to extract penultimate-layer features
+    #    and true labels (this is the expensive convolutional part).
+    # 2) For each repeated run, compute logits by applying only the final linear
+    #    layer (model.fc) to the cached features. This is much faster than
+    #    repeating the entire forward pass.
+
+    # If caller provided precomputed features and labels, reuse them to avoid
+    # an extra expensive forward pass. Otherwise perform a single pass to
+    # collect them.
+    if features is None or y_true is None:
+        y_true, _, _, features = run_inference(model, dataloader, device, k=k, return_features=True)
+
+    # Convert features and labels to tensors on the correct device
+    features_tensor = torch.from_numpy(features).to(device)
+    y_true_np = np.asarray(y_true)
+
+    metrics_list = []
+
+    for i in range(runs):
+        # Compute logits only from cached features
+        with torch.no_grad():
+            logits = model.fc(features_tensor)
+
+        topk_preds = logits.topk(k, dim=1).indices.cpu().numpy()
+        y_pred = topk_preds[:, 0]
+        topk_correct = (topk_preds == y_true_np.reshape(-1, 1)).any(axis=1)
+
+        metrics = compute_metrics(y_true_np, y_pred, topk_correct)
+        metrics_list.append(metrics)
+
+    return compute_metrics_ci(metrics_list)
+
+
+class CollateFnAugment:
+    """
+    Collate function that applies an optional augment_fn (PIL -> PIL) before the
+    model preprocess. Compatible with datasets that return dicts having 'image' and 'label'.
+    """
+
+    def __init__(self, preprocess, augment_fn=None):
+        self.preprocess = preprocess
+        self.augment_fn = augment_fn
+
+    def __call__(self, batch):
+        images = []
+        labels = []
+        for example in batch:
+            img = example["image"].convert("RGB")
+            if self.augment_fn is not None:
+                img = self.augment_fn(img)
+            img_t = self.preprocess(img)
+            images.append(img_t)
+            labels.append(example["label"])
+        images = torch.stack(images)
+        labels = torch.tensor(labels, dtype=torch.long)
+        return images, labels
+
+
+def run_repeated_evaluation_full_forward(
+    model,
+    dataset,
+    device,
+    runs=5,
+    k=5,
+    batch_size=64,
+    num_workers=4,
+    preprocess=None,
+    augment_fn=None,
+):
+    """
+    Perform `runs` complete forward passes over `dataset`, optionally applying a
+    stochastic `augment_fn` (PIL -> PIL) before the provided `preprocess`.
+
+    This recomputes the convolutional features every run and therefore captures
+    variability coming from augmentations / stochastic preprocessing.
+    Returns the same structure produced by `compute_metrics_ci`.
+    """
+    if preprocess is None:
+        raise ValueError("preprocess is required for full forward repeated evaluation")
+
+    metrics_list = []
+
+    collate = CollateFnAugment(preprocess=preprocess, augment_fn=augment_fn)
+
+    for i in range(runs):
+        dl = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            collate_fn=collate,
+        )
+
+        # run full inference (this will apply augmentations inside the collate)
+        y_true_run, y_pred_run, topk_correct_run, _ = run_inference(
+            model, dl, device, k=k, return_features=True
+        )
+
+        metrics = compute_metrics(y_true_run, y_pred_run, topk_correct_run)
+        metrics_list.append(metrics)
+
+    return compute_metrics_ci(metrics_list)
+
+
+
