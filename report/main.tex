@@ -1,0 +1,32 @@
+\documentclass{report}
+\usepackage{multicol}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{tikz}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{enumitem}
+\usepackage[table]{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{float}
+\usepackage[provide=*,italian]{babel}
+\usepackage{biblatex}
+\addbibresource{DriftArchiDati.bib}
+\newtheorem{definition}{Definizione}
+\theoremstyle{definition}
+\title{Report progetto Architetture Dati: data drift su ImageNet}
+\author{Daniele Besozzi 894998, Andrea Consonni 900116, Elena Zen 895355}
+\date{}
+\begin{document}
+\maketitle
+\chapter{Introduzione al problema}
+\input{sections/1.tex}
+\chapter{Analisi dei dataset}
+\chapter{Introduzione al modello}
+\chapter{Analisi dei risultati}
+\printbibliography
+\end{document}
