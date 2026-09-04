@@ -411,3 +411,6 @@ fabric.properties
 # https://plugins.jetbrains.com/plugin/8053-azure-toolkit-for-intellij
 
 # End of https://www.toptal.com/developers/gitignore/api/pycharm,jetbrains
+
+eda_outputs/*_tables
+eda_outputs/properties_files
