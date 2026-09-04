@@ -220,7 +220,7 @@ def extract_drift_info(report_obj):
 def plot_drift_info(ref_df, cur_df, drift_info, ref_label="ImageNet-1k", cur_label="ImageNet-R", save_path = None):
     features = ref_df.columns.tolist()
     n = len(features)
-    ncols = 3
+    ncols = 2
     nrows = -(-n // ncols)
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(6 * ncols, 4.5 * nrows))
@@ -257,7 +257,7 @@ def plot_drift_info(ref_df, cur_df, drift_info, ref_label="ImageNet-1k", cur_lab
     plt.show()
     return fig
 
-def plot_distributions_by_corruption(feature_table, save_dir=None, n_cols=3):
+def plot_distributions_by_corruption(feature_table, drift_table, save_dir=None, n_rows=3):
     features = feature_table.loc[feature_table["feature"].notna(), "feature"].unique()
     severities = sorted(feature_table.loc[feature_table["severity"] > 0, "severity"].unique())
     sev_colors = dict(zip(severities, sns.color_palette("viridis", len(severities))))
@@ -274,9 +274,10 @@ def plot_distributions_by_corruption(feature_table, save_dir=None, n_cols=3):
 
     for corr in corruptions:
         n_feat = len(features)
-        n_rows = math.ceil(n_feat / n_cols)
+        n_cols = math.ceil(n_feat / n_rows)
 
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(3.6 * n_cols, 3 * n_rows))
+        # extra width to make room for the Wasserstein distance annotations on the right
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(4.4 * n_cols, 3 * n_rows))
         axes = axes.reshape(n_rows, n_cols)  # normalizza sempre a 2D
 
         for idx, feat in enumerate(features):
@@ -299,6 +300,17 @@ def plot_distributions_by_corruption(feature_table, save_dir=None, n_cols=3):
 
             if ax.legend_ is not None:
                 ax.legend_.remove()
+
+            # Wasserstein distances (score già calcolato in drift_table), una riga per severità,
+            # colorata in rosso se è stato rilevato drift per quella severità, in verde altrimenti
+            drift_sub = drift_table[(drift_table["corruption"] == corr) &
+                                     (drift_table["feature"] == feat)].sort_values("severity")
+
+            y_start, y_step = 0.95, 0.9 / max(len(drift_sub), 1)
+            for k, row in enumerate(drift_sub.itertuples()):
+                color = "red" if row.detected else "green"
+                ax.text(1.03, y_start - k * y_step, f"sev {row.severity}: WD={row.score:.3f}",
+                        transform=ax.transAxes, fontsize=7, va="top", ha="left", color=color)
 
         # nascondi eventuali assi vuoti in eccesso (se n_feat non è multiplo di n_cols)
         for idx in range(n_feat, n_rows * n_cols):
@@ -338,7 +350,7 @@ def plot_severity_curves_by_category(drift_table, threshold=0.1, save_dir=None):
         cmap = mpl.colormaps["tab10"].resampled(len(corruptions))
         corruption_colors = {c: cmap(j) for j, c in enumerate(corruptions)}
 
-        ncols = 3
+        ncols = 2
         nrows = -(-len(features) // ncols)
         fig, axes = plt.subplots(nrows, ncols, figsize=(6.5 * ncols, 4.5 * nrows), sharey=False)
         axes = axes.flatten()
