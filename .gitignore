@@ -414,3 +414,12 @@ fabric.properties
 
 eda_outputs/*_tables
 eda_outputs/properties_files
+.vscode
+*.bbl
+*.bcf
+*.blg
+*.out
+*.aux
+*.run.xml
+*.synctex.gz
+*.toc
