@@ -12,3 +12,4 @@ tqdm
 pillow
 pandas
 seaborn
+evidently
