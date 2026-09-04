@@ -387,3 +387,42 @@ def plot_severity_curves_by_category(drift_table, threshold=0.1, save_dir=None):
         figs[cat] = fig
 
     return figs
+
+def summarize_drift(drift_table, save_dir=None):
+    """
+    Builds a summary table per corruption category, with one column per severity
+    showing the Wasserstein score for each corruption/feature combination, plus
+    a 'drift_detected' column flagging whether drift was detected at any severity.
+    Optionally saves each category's table to a CSV file.
+    """
+    table = drift_table.copy()
+    table["category"] = table["corruption"].map(corruption_to_category)
+
+    # Create the output folder if a save path was given
+    if save_dir is not None:
+        save_dir = Path(save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+    summaries = {}
+    for category in sorted(table["category"].dropna().unique()):
+        cat_table = table[table["category"] == category]
+
+        pivot = cat_table.pivot_table(
+            index=["corruption", "feature"],
+            columns="severity",
+            values="score",
+        )
+        pivot.columns = [f"sev_{int(s)}" for s in pivot.columns]
+
+        # Flag whether drift was detected at any severity for that corruption/feature
+        detected = cat_table.groupby(["corruption", "feature"])["detected"].any()
+        pivot = pivot.join(detected.rename("drift_detected"))
+
+        pivot = pivot.reset_index().sort_values(["corruption", "feature"]).reset_index(drop=True)
+
+        summaries[category] = pivot
+
+        if save_dir is not None:
+            pivot.to_csv(save_dir / f"drift_summary_{category}.csv", index=False)
+
+    return summaries
