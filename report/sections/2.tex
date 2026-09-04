@@ -80,3 +80,86 @@ Le immagini sono categorizzate in base a diversi stili (es. Painting, Sculpture,
 	\caption{Esempi di immagini stilizzate del dataset ImageNet-R. Painting, etc. sono stili di rappresentazione, non etichette.}
 	\label{fig:imagenet_r}
 \end{figure}
+
+\section{Metodologia}
+
+In questa sezione descriviamo la metodologia adottata per valutare la capacità di generalizzazione Out-of-Distribution (OOD) del modello analizzato. Il processo si articola in tre fasi principali: preprocessing dei dataset, testing del modello e analisi del drift.
+
+\subsection{Librerie e strumenti utilizzati}
+Il progetto è stato sviluppato in Python 3.12 e fa uso delle seguenti librerie principali:
+
+\begin{itemize}
+	\item \textbf{PyTorch (torch) e TorchVision}: per il caricamento del modello ResNet-50 pre-addestrato, la definizione della pipeline di preprocessing e l'esecuzione dell'inferenza sulle GPU.
+	\item \textbf{HuggingFace Datasets}: per il caricamento, la trasformazione e la gestione efficiente dei dataset ImageNet-1k, ImageNet-R e ImageNet-C in formato Arrow, con supporto al parallelismo e alla serializzazione su disco.
+	\item \textbf{NumPy e Pandas}: per la manipolazione numerica e tabulare dei dati, inclusa la gestione delle feature estratte e dei risultati delle metriche.
+	\item \textbf{Scikit-learn}: per il calcolo delle metriche di classificazione (accuracy, balanced accuracy, precision, recall, F1-score, MCC, Cohen's Kappa) e per la stima del kernel RBF nel test MMD.
+	\item \textbf{SciPy}: per il test di Kolmogorov-Smirnov a due campioni (\texttt{ks\_2samp}), la stima della densità kernel (\texttt{gaussian\_kde}), l'integrazione numerica (\texttt{trapezoid}), la regressione lineare (\texttt{linregress}) e la distribuzione $t$ di Student per gli intervalli di confidenza.
+	\item \textbf{Matplotlib e Seaborn}: per la visualizzazione dei risultati, inclusi grafici KDE di distribuzione delle proprietà delle immagini, andamenti delle metriche al vari della severità delle corruzioni e diagrammi a barre per il confronto baseline vs drift.
+	\item \textbf{Pillow (PIL)}: per l'estrazione delle proprietà visive delle immagini (luminosità, contrasto RMS, nitidezza, rapporto d'aspetto, area, media dei canali RGB).
+	\item \textbf{tqdm}: per le barre di progresso durante l'estrazione delle proprietà e l'esecuzione dell'inferenza.
+\end{itemize}
+
+\subsection{Preprocessing dei dataset}
+Il preprocessing è gestito dallo script \texttt{data\_preprocess/datasets\_preprocess.py}, che orchestra il caricamento, la trasformazione e il salvataggio su disco dei tre dataset.
+
+\textbf{ImageNet-1k}: Il validation set (50.000 immagini) è stato scaricato tramite HuggingFace Datasets utilizzando il builder parquet, necessario poiché il dataset builder ufficiale è riservato ai partecipanti alla competizione ILSVRC. L'accesso al dataset è gated e richiede autenticazione via \texttt{huggingface\_hub}.
+\textbf{ImageNet-R}: Il dataset è stato caricato dal repository HuggingFace \texttt{axiong/imagenet-r}. Il preprocessing consiste in: (a) la mappatura dei WNID (WordNet ID) delle immagini agli indici di classe di ImageNet-1k tramite il file di mapping \texttt{LOC\_sysnet\_mapping.txt}, che associa ciascun WNID a un indice numerico e a una descrizione testuale; (b) il capping a 50 esempi per classe tramite la funzione \texttt{cap\_examples\_per\_class()}, per garantire un bilanciamento uniforme con il subset di ImageNet-1k utilizzato come baseline.
+\textbf{ImageNet-1k (preprocessato)}: Il validation set è stato filtrato per contenere esclusivamente le 200 classi presenti in ImageNet-R, ottenendo un dataset di 10.000 immagini (50 per classe). Questo cross-filtering garantisce che il confronto tra baseline e drift avvenga sullo stesso spazio di classi.
+\textbf{ImageNet-C}: Il dataset è stato scaricato direttamente dal sito ufficiale degli autori (Zenodo), che mette a disposizione quattro archivi tar (\texttt{blur.tar}, \texttt{digital.tar}, \texttt{noise.tar}, \texttt{weather.tar}). Dopo l'estrazione, è stata costruita una struttura di dataset HuggingFace separata per ogni coppia (corruzione, severità), ad esempio \texttt{gaussian\_noise\_sev\_1}, \texttt{gaussian\_noise\_sev\_2}, ecc. Ciascun dataset contiene le colonne \texttt{image}, \texttt{wnid} e \texttt{label}, dove il label è stato assegnato tramite la stessa mappatura WNID-to-index usata per gli altri dataset. I dati sono stati salvati su disco in formato Arrow per un accesso efficiente.
+
+\subsection{Modello utilizzato}
+Il modello analizzato è ResNet-50 con pesi pre-addestrati su ImageNet-1k (variante \texttt{IMAGENET1K\_V2}), caricato tramite TorchVision. Il modello è stato impostato in modalità \texttt{eval()} e non è stato sottoposto ad alcun fine-tuning: l'obiettivo è valutare la robustezza del modello così come è, senza addestramento aggiuntivo.
+La funzione \texttt{extract\_resnet50\_features()} esegue un forward pass manuale attraverso i layer convoluzionali di ResNet-50, estraendo sia le feature del penultimo layer (output di \texttt{avgpool}, vettori a 2048 dimensioni) sia i logits di classificazione prodotti dal layer fully-connected finale. Questa strategia permette di raccogliere le feature intermedie per le analisi di drift basate sulle rappresentazioni del modello, senza dover eseguire due forward pass separati.
+
+\subsection{Pipeline di testing e calcolo delle metriche}
+Il testing è eseguito dagli script \texttt{test\_model\_ImageNetC.py} e \texttt{test\_model\_ImageNetR.py}, che implementano una pipeline strutturata in più step.
+
+\textbf{Inferenza}: La funzione \texttt{run\_inference()} esegue il forward pass del modello sul dataloader, raccogliendo le etichette vere, le predizioni top-1, le predizioni top-$k$ ($k$=5) e, opzionalmente, le feature del penultimo layer. Il tutto avviene con decoratore \texttt{@torch.no\_grad()} per ottimizzare l'uso della memoria.
+\textbf{Metriche di classificazione}: La funzione \texttt{compute\_metrics()} calcola un set completo di 14 metriche per ogni run di inferenza:
+\begin{itemize}
+	\item Accuracy e top-5 accuracy
+	\item Balanced accuracy (media del recall per classe)
+	\item Precision, recall e F1-score in varianti macro, weighted e micro
+	\item Matthews Correlation Coefficient (MCC)
+	\item Cohen's Kappa
+\end{itemize}
+
+\textbf{Valutazione ripetuta con intervalli di confidenza}: Per ottenere stime robuste con intervalli di confidenza, il progetto implementa due strategie di valutazione ripetuta:
+
+\begin{enumerate}
+	\item \textbf{Feature cache + FC ripetuto} (\texttt{run\_repeated\_evaluation()}): Esegue un singolo forward pass costoso per estrarre le feature, poi per ciascuna delle 5 ripetizioni applica solo il layer fully-connected finale (\texttt{model.fc}) alle feature in cache. Questa strategia cattura la variabilità del classificatore ma non quella delle augmentation.
+	\item \textbf{Forward pass completo} (\texttt{run\_repeated\_evaluation\_full\_forward()}): Per ciascuna delle 5 ripetizioni, esegue un forward pass completo applicando una pipeline di augmentation stocastica prima del preprocessing del modello. Le augmentation utilizzate sono \texttt{RandomResizedCrop(224, scale=(0.9, 1.0))} e \texttt{ColorJitter(brightness=0.08, contrast=0.08, saturation=0.05, hue=0.02)}. Questa strategia cattura la variabilità completa introdotta dalle augmentation stochastiche.
+\end{enumerate}
+
+La funzione \texttt{compute\_metrics\_ci()} aggrega i risultati delle 5 ripetizioni calcolando media, deviazione standard e intervalli di confidenza al 95\% per ogni metrica, utilizzando la distribuzione $t$ di Student di Welch (df di Welch-Satterthwaite) per la stima dell'intervallo.
+\textbf{Baseline}: Per ImageNet-C, il validation set originale di ImageNet-1k (50.000 immagini, tutte le 1000 classi) è stato utilizzato come baseline. Per ImageNet-R, il subset preprocessato di ImageNet-1k (10.000 immagini, 200 classi) è stato utilizzato come baseline.
+
+\subsection{Analisi del drift}
+
+L'analisi del drift è stata condotta su due livelli: un livello ``flat'' sulle proprietà visive delle immagini e un livello ``profondo'' sulle feature estratte dal modello.
+
+\textbf{Drift sulle proprietà visive delle immagini (KS test)}: La funzione \texttt{extract\_properties()} del modulo \texttt{drift\_detection.py} estrae otto proprietà visive per ogni immagine: luminosità (media della scala di grigi normalizzata), contrasto RMS (deviazione standard della scala di grigi normalizzata), nitidezza (varianza del Laplaciano, calcolata tramite il filtro \texttt{FIND\_EDGES} di PIL), rapporto d'aspetto (width/height), area (width $\times$ height in milioni di pixel) e le medie normalizzate dei tre canali RGB.
+Le proprietà relative al formato, sono state scartate, poiché le immagini vengono ridimensionate e preprocessate in modo uniforme. Per ognuna delle altre proprietà, viene applicato il test di Kolmogorov-Smirnov a due campioni (\texttt{ks\_2samp} di SciPy), che confronta le distribuzioni della proprietà nel dataset di riferimento (baseline) e nel dataset di confronto (drift). Il test restituisce la statistica KS (massima distanza cumulativa tra le due distribuzioni) e il $p$-value. Si considera la presenza di drift se $p\text{-value} < 0{,}05$. I risultati vengono visualizzati graficamente tramite densità kernel (KDE) per ogni proprietà, con sovrapposizione delle distribuzioni e annotazione dei valori KS e $p$-value.
+Il sistema implementa un meccanismo di cache su disco per le proprietà estratte, evitando di ricalcolare estrazioni costose su dataset grandi. La chiave cache è derivata dal nome del dataset, dalla colonna immagine e dal numero massimo di campioni.
+Per ImageNet-R, è stato confrontato ImageNet-1k preprocessato (baseline) con ImageNet-R preprocessato. Per ImageNet-C, è stato confrontato ImageNet-1k preprocessato con ogni singola corruzione a ogni livello di severità (ad esempio, \texttt{brightness\_sev\_1}, \texttt{brightness\_sev\_2}, ecc.).
+
+\textbf{Drift sulle feature del modello (MMD)}: Il Maximum Mean Discrepancy (MMD) con kernel RBF è stato utilizzato per quantificare lo spostamento distribuzionale nello spazio delle feature estratte da ResNet-50. La funzione \texttt{mmd\_rbf\_batched()} calcola la MMD in blocchi (batch size = 512) per gestire efficientemente la memoria con dataset grandi ($10.000 \times 10.000$ coppie). Il parametro $\gamma$ del kernel RBF è stimato automaticamente come $1 / (2 \cdot \text{mediana}(\text{distanze})^2)$, dove le distanze sono calcolate su un subsample di 2000 campioni tramite \texttt{pdist} di SciPy.
+Per valutare la significatività statistica della MMD osservata, è implementato un permutation test (\texttt{mmd\_permutation\_test}): le etichette di appartenenza ai due dataset vengono mescolate casualmente per 100--500 volte, e per ogni permutazione viene ricalcolata la MMD. Il $p$-value è la frazione di permutazioni in cui la MMD casuale è maggiore o uguale a quella osservata. La distribuzione nulla viene visualizzata tramite istogramma con sovrapposizione del valore osservato.
+I risultati del test MMD sono stati raccolti in un file CSV (\texttt{mmd\_drift\_report.csv}) contenente per ogni coppia (corruzione, severità): la categoria della corruzione, il livello di severità, il flag di drift (basato su $p$-value $< 0{,}05$), il $p$-value, la distanza MMD, il dispositivo utilizzato e le dimensioni dei campioni di riferimento e target.
+
+\subsection{Analisi delle metriche di performance}
+
+L'analisi delle metriche è condotta nel notebook \texttt{metrics\_analysis.ipynb}, che implementa funzioni per il confronto sistematico delle prestazioni del modello tra baseline e dataset OOD.
+\textbf{Confronto ImageNet-1k vs ImageNet-R}: Per ogni metrica, viene calcolato il delta ($\text{baseline\_mean} - \text{drift\_mean}$) con intervallo di confidenza al 95\% stimato tramite bootstrap (5000 iterazioni) o test $t$ di Welch. La significatività del delta è valutata verificando se lo zero è incluso nell'intervallo di confidenza.
+\textbf{Confronto ImageNet-1k vs ImageNet-C}: Per ogni tipo di corruzione e livello di severità, vengono calcolate le metriche con intervalli di confidenza. L'analisi include:
+
+\begin{itemize}
+	\item Plot delle metriche al vari della severità per ogni singola corruzione, con linea di baseline e bande di confidenza.
+	\item Plot delle metriche per categoria di corruzione (noise, blur, digital, weather), sovrapponendo le curve di tutte le corruzioni della stessa categoria.
+	\item Calcolo della degradazione normalizzata: $D_s = (Acc_{\text{clean}} - Acc_s) / Acc_{\text{clean}}$, dove $Acc_{\text{clean}}$ è l'accuracy sul baseline e $Acc_s$ l'accuracy a severità $s$.
+	\item Calcolo dell'AUC della robustezza: $\text{AUC}_{\text{rob}} = \frac{1}{5} \sum_{s=1}^{5} Acc_s / Acc_{\text{clean}}$, che quantifica la capacità complessiva del modello di mantenere le prestazioni al vari della severità.
+	\item Calcolo della pendenza (\textit{slope}) della degradazione tramite regressione lineare, che indica la velocità di deterioramento delle prestazioni all'aumentare della severità.
+	\item Calcolo dell'$R^2$ della regressione, che indica quanto la relazione lineare tra severità e degradazione è appropriata.
+\end{itemize}
+
+Le corruzioni vengono classificate in quattro categorie: \textit{noise} (gaussian, shot, impulse), \textit{blur} (defocus, glass, motion, zoom), \textit{digital} (brightness, contrast, elastic\_transform, pixelate, jpeg\_compression) e \textit{weather} (snow, frost, fog).
