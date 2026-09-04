@@ -1,0 +1,87 @@
+
+In questa sezione descriviamo la metodologia adottata per valutare la capacità di generalizzazione Out-of-Distribution (OOD) del modello analizzato. Il processo si articola in tre fasi principali: preprocessing dei dataset, testing del modello e analisi del drift.
+
+\section{Librerie e strumenti utilizzati}
+Il progetto è stato sviluppato in Python 3.12 e fa uso delle seguenti librerie principali:
+
+\begin{itemize}
+	\item \textbf{PyTorch (torch) e TorchVision}: per il caricamento del modello ResNet-50 pre-addestrato, la definizione della pipeline di preprocessing e l'esecuzione dell'inferenza sulle GPU.
+	\item \textbf{HuggingFace Datasets}: per il caricamento, la trasformazione e la gestione efficiente dei dataset ImageNet-1k, ImageNet-R e ImageNet-C in formato Arrow, con supporto al parallelismo e alla serializzazione su disco.
+	\item \textbf{NumPy e Pandas}: per la manipolazione numerica e tabulare dei dati, inclusa la gestione delle feature estratte e dei risultati delle metriche.
+	\item \textbf{Scikit-learn}: per il calcolo delle metriche di classificazione (accuracy, balanced accuracy, precision, recall, F1-score, MCC, Cohen's Kappa).
+	\item \textbf{SciPy}: %TODO elenina EVIDENTLY AI distanza di vescertasehqyuwgein 
+	\item \textbf{Matplotlib e Seaborn}: per la visualizzazione dei risultati, inclusi grafici KDE di distribuzione delle proprietà delle immagini, andamenti delle metriche al vari della severità delle corruzioni e diagrammi a barre per il confronto baseline vs drift.
+	\item \textbf{Pillow (PIL)}: per l'estrazione delle proprietà visive delle immagini (luminosità, contrasto RMS, nitidezza, rapporto d'aspetto, area, media dei canali RGB).
+	\item \textbf{tqdm}: per le barre di progresso durante l'estrazione delle proprietà e l'esecuzione dell'inferenza.
+\end{itemize}
+
+\section{Preprocessing dei dataset}
+Il preprocessing è gestito dallo script \texttt{data\_preprocess/datasets\_preprocess.py}, che orchestra il caricamento, la trasformazione e il salvataggio su disco dei tre dataset.
+\begin{itemize}
+	\item \textbf{ImageNet-1k}: Il validation set (50.000 immagini) è stato scaricato tramite HuggingFace Datasets utilizzando il builder parquet, necessario poiché il builder ufficiale costringe il download dell'intero dataset mentre per il nostro progetto è sufficiente il subset di validazione. L'accesso al dataset è gated e richiede autenticazione via \texttt{huggingface\_hub}.
+	\begin{itemize}
+		\item \textbf{Confronto con ImageNet-R}: Il validation set è stato filtrato per contenere esclusivamente le 200 classi presenti in ImageNet-R, ottenendo un dataset di 10.000 immagini (50 per classe). Questo cross-filtering garantisce che il confronto tra baseline e drift avvenga sullo stesso spazio di classi.
+		\item \textbf{Confronto con ImageNet-C}: Il validation set è stato mantenuto intatto, in quanto ImageNet-C è costruito applicando corruzioni direttamente sulle stesse immagini del validation set di ImageNet-1k.
+	\end{itemize}
+	\item \textbf{ImageNet-R}: Il dataset è stato caricato dal repository HuggingFace \texttt{axiong/imagenet-r}. Il preprocessing consiste in: 
+	\begin{itemize}
+		\item La mappatura dei WNID (WordNet ID) delle immagini agli indici di classe di ImageNet-1k tramite il file di mapping \texttt{LOC\_sysnet\_mapping.txt}, che associa ciascun WNID a un indice numerico (0-999) e a una descrizione testuale.
+		\item Il capping a 50 esempi per classe tramite la funzione \texttt{cap\_examples\_per\_class()}, per garantire un bilanciamento uniforme con il set di ImageNet-1k utilizzato come baseline.
+		\end{itemize}
+	\item \textbf{ImageNet-C}: Il dataset è stato scaricato direttamente dal sito Zenodo, che mette a disposizione quattro archivi tar (\texttt{blur.tar}, \texttt{digital.tar}, \texttt{noise.tar}, \texttt{weather.tar}). Dopo l'estrazione, è stata costruita una struttura di dataset HuggingFace separata per ogni coppia (corruzione, severità), ad esempio \texttt{gaussian\_noise\_sev\_1}, \texttt{gaussian\_noise\_sev\_2}, ecc. Ciascun dataset contiene le colonne \texttt{image}, \texttt{wnid} e \texttt{label}, dove il label è stato assegnato tramite la stessa mappatura WNID-to-index usata per gli altri dataset. I dati sono stati salvati su disco in formato Arrow per un accesso efficiente.
+
+	\end{itemize}
+
+\section{Estrazioni delle feature e inferenza del modello}
+Il modello analizzato è ResNet-50 con pesi pre-addestrati su ImageNet-1k (variante \texttt{IMAGENET1K\_V2}), caricato tramite TorchVision. Il modello è stato impostato in modalità \texttt{eval()} e non è stato sottoposto ad alcun fine-tuning: l'obiettivo è valutare la robustezza del modello così come è, senza addestramento aggiuntivo.
+La funzione \texttt{extract\_resnet50\_features()} esegue un forward pass manuale attraverso i layer convoluzionali di ResNet-50, estraendo sia le feature del penultimo layer (output di \texttt{avgpool}, vettori a 2048 dimensioni) sia i logits di classificazione prodotti dal layer fully-connected finale. Questa strategia permette di raccogliere le feature intermedie per le analisi di drift basate sulle rappresentazioni del modello, senza dover eseguire due forward pass separati.
+
+\section{Pipeline di testing e calcolo delle metriche}
+Il testing è eseguito dagli script \texttt{test\_model\_ImageNetC.py} e \texttt{test\_model\_ImageNetR.py}, che implementano una pipeline strutturata in più step.
+\begin{itemize}
+	\item \textbf{Inferenza}: La funzione \texttt{run\_inference()} esegue il forward pass del modello sul dataloader, raccogliendo le etichette vere, le predizioni top-1, le predizioni top-5 e, opzionalmente, le feature del penultimo layer. Il tutto avviene con decoratore \texttt{@torch.no\_grad()} per ottimizzare l'uso della memoria.
+	\item \textbf{Metriche di classificazione}: La funzione \texttt{compute\_metrics()} calcola un set completo di 14 metriche per ogni run di inferenza:
+	\begin{itemize}
+		\item Accuracy e top-5 accuracy
+		\item Balanced accuracy (media del recall per classe)
+		\item Precision, recall e F1-score in varianti macro, weighted e micro
+		\item Matthews Correlation Coefficient (MCC)
+		\item Cohen's Kappa
+	\end{itemize} 
+\end{itemize}
+
+
+
+\subsubsection{Valutazione ripetuta con intervalli di confidenza}
+Per ottenere stime robuste con intervalli di confidenza, per ciascuna delle 5 ripetizioni, viene eseguito un forward pass completo applicando una pipeline di augmentation stocastica prima del preprocessing del modello.
+Le augmentation utilizzate sono \texttt{RandomResizedCrop(224, scale=(0.9, 1.0))} e \\
+\texttt{ColorJitter(brightness=0.08, contrast=0.08, saturation=0.05, hue=0.02)}. Questa strategia cattura la variabilità completa introdotta dalle augmentation stochastiche.
+
+La funzione \texttt{compute\_metrics\_ci()} aggrega i risultati delle 5 ripetizioni calcolando media, deviazione standard e intervalli di confidenza al 95\% per ogni metrica.
+\subsubsection{Baseline} Per ImageNet-C, il validation set originale di ImageNet-1k (50.000 immagini, tutte le 1000 classi) è stato utilizzato come baseline. Per ImageNet-R, il set preprocessato di ImageNet-1k (10.000 immagini, 200 classi) è stato utilizzato come baseline.
+
+\section{Analisi del drift}
+
+L'analisi del drift è stata condotta su due livelli: 
+\begin{itemize}
+	\item Proprietà visive delle immagini.
+	\item Feature estratte dal modello ResNet-50.
+\end{itemize}
+% TODO: aggiungere descrizione dei test
+\section{Analisi delle metriche di performance}
+
+L'analisi delle metriche è condotta nel notebook \texttt{metrics\_analysis.ipynb}, che implementa funzioni per il confronto sistematico delle prestazioni del modello tra baseline e dataset OOD.
+\begin{itemize}
+	\item \textbf{Confronto ImageNet-1k vs ImageNet-R}: Per ogni metrica, viene calcolato il delta ($\text{baseline\_mean} - \text{drift\_mean}$) con intervallo di confidenza al 95\% stimato tramite bootstrap (5000 iterazioni) o test $t$ di Welch. %TODO:spiegare bene 
+	La significatività del delta è valutata verificando se lo zero è incluso nell'intervallo di confidenza.
+	\item \textbf{Confronto ImageNet-1k vs ImageNet-C}: Per ogni tipo di corruzione e livello di severità, vengono calcolate le metriche con intervalli di confidenza. L'analisi include:
+	\begin{itemize}
+		\item Plot delle metriche al variare della severità per ogni singola corruzione, con linea di baseline e bande di confidenza.
+		\item Plot delle metriche per categoria di corruzione (noise, blur, digital, weather), sovrapponendo le curve di tutte le corruzioni della stessa categoria.
+		\item Calcolo della degradazione normalizzata: $D_s = (Acc_{\text{clean}} - Acc_s) / Acc_{\text{clean}}$, dove $Acc_{\text{clean}}$ è l'accuracy sul baseline e $Acc_s$ l'accuracy a severità $s$.
+		\item Calcolo dell'AUC della robustezza: $\text{AUC}_{\text{rob}} = \frac{1}{5} \sum_{s=1}^{5} Acc_s / Acc_{\text{clean}}$, che quantifica la capacità complessiva del modello di mantenere le prestazioni al variare della severità.
+		\item Calcolo della pendenza (\textit{slope}) della degradazione tramite regressione lineare, che indica la velocità di deterioramento delle prestazioni all'aumentare della severità.
+		\item Calcolo dell'$R^2$ della regressione, che indica quanto la relazione tra severità e degradazione sia lineare.
+
+	\end{itemize}
+\end{itemize}
