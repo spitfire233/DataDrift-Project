@@ -9,7 +9,8 @@ Il progetto è stato sviluppato in Python 3.12 e fa uso delle seguenti librerie 
 	\item \textbf{HuggingFace Datasets}: per il caricamento, la trasformazione e la gestione efficiente dei dataset ImageNet-1k, ImageNet-R e ImageNet-C in formato Arrow, con supporto al parallelismo e alla serializzazione su disco.
 	\item \textbf{NumPy e Pandas}: per la manipolazione numerica e tabulare dei dati, inclusa la gestione delle feature estratte e dei risultati delle metriche.
 	\item \textbf{Scikit-learn}: per il calcolo delle metriche di classificazione (accuracy, balanced accuracy, precision, recall, F1-score, MCC, Cohen's Kappa).
-	\item \textbf{SciPy}: %TODO elenina EVIDENTLY AI distanza di vescertasehqyuwgein 
+	\item \textbf{SciPy}: per la stima della densità kernel (\texttt{gaussian\_kde}), l'integrazione numerica (\texttt{trapezoid}), la regressione lineare (\texttt{linregress}) e la distribuzione $t$ di Student per gli intervalli di confidenza.
+	\item \textbf{Evidently}: libreria open-source per il monitoraggio e la rilevazione del data drift. È stata utilizzata per eseguire i test di Wasserstein (normed) sulle proprietà visive delle immagini e il test \texttt{empirical\_mmd} sulle feature estratte dal modello.
 	\item \textbf{Matplotlib e Seaborn}: per la visualizzazione dei risultati, inclusi grafici KDE di distribuzione delle proprietà delle immagini, andamenti delle metriche al vari della severità delle corruzioni e diagrammi a barre per il confronto baseline vs drift.
 	\item \textbf{Pillow (PIL)}: per l'estrazione delle proprietà visive delle immagini (luminosità, contrasto RMS, nitidezza, rapporto d'aspetto, area, media dei canali RGB).
 	\item \textbf{tqdm}: per le barre di progresso durante l'estrazione delle proprietà e l'esecuzione dell'inferenza.
@@ -50,6 +51,9 @@ Il testing è eseguito dagli script \texttt{test\_model\_ImageNetC.py} e \texttt
 	\end{itemize} 
 \end{itemize}
 
+MCC e Cohen's Kappa sono due metriche che correggono l'accuracy in modo da essere affidabili anche in presenza di dataset sbilanciati:
+
+Il \textbf{MCC} (Matthews Correlation Coefficient) è il coefficiente di correlazione tra etichette vere e predette (vale tra $-1$ e $+1$, dove $+1$ indica predizione perfetta), mentre la \textbf{Cohen's Kappa} misura l'accordo tra due classificatori (qui modello vs etichette vere) al netto dell'accordo dovuto al caso, ovvero quanto le predizioni sono migliori di quelle che si otterrebbero indovinando a caso in base alla distribuzione delle classi. I loro valori non sono stati analizzati nel dettaglio, ma sono stati mantenuti per completezza.
 
 
 \subsubsection{Valutazione ripetuta con intervalli di confidenza}
@@ -57,7 +61,9 @@ Per ottenere stime robuste con intervalli di confidenza, per ciascuna delle 5 ri
 Le augmentation utilizzate sono \texttt{RandomResizedCrop(224, scale=(0.9, 1.0))} e \\
 \texttt{ColorJitter(brightness=0.08, contrast=0.08, saturation=0.05, hue=0.02)}. Questa strategia cattura la variabilità completa introdotta dalle augmentation stochastiche.
 
-La funzione \texttt{compute\_metrics\_ci()} aggrega i risultati delle 5 ripetizioni calcolando media, deviazione standard e intervalli di confidenza al 95\% per ogni metrica.
+La funzione \texttt{compute\_metrics\_ci()} aggrega i risultati delle 5 ripetizioni calcolando media, deviazione standard e intervalli di confidenza al 95\% per ogni metrica, utilizzando la distribuzione $t$ di Student di Welch (df di Welch-Satterthwaite) per la stima dell'intervallo. 
+
+Il \textbf{test $t$ di Welch} (noto anche come $t$-test per varianze diseguali) è una variante del $t$-test di Student che non assume l'uguaglianza delle varianze dei due gruppi: i gradi di libertà vengono calcolati tramite la formula approssimata di Welch-Satterthwaite, che dipende sia dalle dimensioni campionarie sia dalle varianze stimate. Questo test è stato scelto perché le metriche calcolate sulle poche ripetizioni (5 run) possono presentare varianze diverse tra dataset, e questa versione restituisce un intervallo di confidenza per la differenza delle medie più robusto rispetto al $t$-test classico.
 \subsubsection{Baseline} Per ImageNet-C, il validation set originale di ImageNet-1k (50.000 immagini, tutte le 1000 classi) è stato utilizzato come baseline. Per ImageNet-R, il set preprocessato di ImageNet-1k (10.000 immagini, 200 classi) è stato utilizzato come baseline.
 
 \section{Analisi del drift}
@@ -67,13 +73,23 @@ L'analisi del drift è stata condotta su due livelli:
 	\item Proprietà visive delle immagini.
 	\item Feature estratte dal modello ResNet-50.
 \end{itemize}
-% TODO: aggiungere descrizione dei test
+
+\textbf{Drift sulle proprietà visive delle immagini (Wasserstein test normed)}: La funzione \texttt{extract\_properties()} del modulo \texttt{drift\_utils.py} estrae sei proprietà visive per ogni immagine: luminosità (media della scala di grigi normalizzata), contrasto RMS (deviazione standard della scala di grigi normalizzata), nitidezza (varianza del Laplaciano, calcolata tramite il filtro \texttt{FIND\_EDGES} di PIL) e le medie normalizzate dei tre canali RGB.
+
+Per ogni proprietà, il drift viene rilevato utilizzando il \textbf{test di Wasserstein} in versione \emph{normed} della libreria Evidently. La distanza di Wasserstein quantifica il costo minimo di trasporto per trasformare la distribuzione di una proprietà nel dataset di riferimento (baseline) in quella del dataset di confronto (drift); la versione \emph{normed} la normalizza utilizzando la deviazione standard del baseline. Si considera presente il drift quando il punteggio supera la soglia predefinita (di default 0.1). I risultati vengono visualizzati con sovrapposizione delle distribuzioni e annotazione del punteggio e del flag di drift.
+Il sistema implementa un meccanismo di cache su disco (file CSV) per le proprietà estratte, evitando di ricalcolare estrazioni costose su dataset grandi. La chiave cache è derivata dal nome del dataset, dalla colonna immagine e dal numero massimo di campioni.
+
+Per ImageNet-R, è stato confrontato ImageNet-1k preprocessato (baseline) con ImageNet-R preprocessato. Per ImageNet-C, è stato confrontato ImageNet-1k preprocessato con ogni singola corruzione a ogni livello di severità (ad esempio, \texttt{brightness\_sev\_1}, \texttt{brightness\_sev\_2}, ecc.).
+
+\textbf{Drift sulle feature del modello (\texttt{empirical\_mmd})}: Per quantificare lo spostamento distribuzionale nello spazio delle rappresentazioni estratte da ResNet-50 (feature del penultimo layer, vettori a 2048 dimensioni), è stato utilizzato il test \texttt{empirical\_mmd} di Evidently. 
+
+La Maximum Mean Discrepancy (MMD) empirica misura la differenza tra le medie delle due distribuzioni nello spazio di un kernel (in genere RBF): un valore prossimo a zero indica che le due distribuzioni di feature sono praticamente identiche, mentre un valore maggiore indica la presenza di drift nelle rappresentazioni del modello. Anche in questo caso la presenza di drift viene stabilita confrontando il punteggio con una soglia predefinita. I risultati del test sono stati prevalorizzati separatamente per ogni coppia (corruzione, severità) e per il confronto ImageNet-1k vs ImageNet-R.
+
 \section{Analisi delle metriche di performance}
 
 L'analisi delle metriche è condotta nel notebook \texttt{metrics\_analysis.ipynb}, che implementa funzioni per il confronto sistematico delle prestazioni del modello tra baseline e dataset OOD.
 \begin{itemize}
-	\item \textbf{Confronto ImageNet-1k vs ImageNet-R}: Per ogni metrica, viene calcolato il delta ($\text{baseline\_mean} - \text{drift\_mean}$) con intervallo di confidenza al 95\% stimato tramite bootstrap (5000 iterazioni) o test $t$ di Welch. %TODO:spiegare bene 
-	La significatività del delta è valutata verificando se lo zero è incluso nell'intervallo di confidenza.
+	\item \textbf{Confronto ImageNet-1k vs ImageNet-R}: Per ogni metrica, viene calcolato il delta ($\text{baseline\_mean} - \text{drift\_mean}$) con intervallo di confidenza al 95\%. L'intervallo viene stimato con due approcci alternativi: il test $t$ di Welch (che usa gradi di libertà di Welch-Satterthwaite) quando è possibile calcolare correttamente la formula, oppure il \emph{bootstrap} (5000 iterazioni) come alternativa. La significatività del delta è valutata verificando se lo zero è incluso nell'intervallo di confidenza.
 	\item \textbf{Confronto ImageNet-1k vs ImageNet-C}: Per ogni tipo di corruzione e livello di severità, vengono calcolate le metriche con intervalli di confidenza. L'analisi include:
 	\begin{itemize}
 		\item Plot delle metriche al variare della severità per ogni singola corruzione, con linea di baseline e bande di confidenza.
