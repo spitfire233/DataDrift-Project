@@ -3,11 +3,42 @@ in contesti reali, un drift nelle distribuzioni dei dati osservati rispetto alla
 osservata durante la fase di addestramento. In particolare, uno dei tipi di modello più diffuso per il riconoscimento
 delle immagini è quello che prende il nome di \textbf{rete neurale convolutiva} (Convolutional neural network, CNN).
 In questo capitolo, introdurremo il funzionamento delle CNN e descriveremo la variante
-utilizzata per questo progetto, le \textbf{reti 1neurali residuali} (Residual Neural Network, RNN).
+utilizzata per questo progetto, le \textbf{reti neurali residuali}.
 \section{Reti neurali convolutive}
-Una rete neurale convolutiva 
+Le \textbf{reti neurali convolutive} furono per la prima volta introdotte nella loro
+forma moderna nel 1989 da Le Cun et al \cite{lecun_handwritten_1989}, i quali svilupparono LeNet-5, una
+rete convolutiva in grado di classificare le cifre scritte a mano su dei fogli.
+La struttura particolare di questo tipo di reti le rende particolarmente efficaci nell'ambito
+del riconoscimento di immagini, poiché esse sono capaci di sfruttare le \textbf{caratteristiche spaziali dell'input}, come
+per esempio la correlazione spaziale tra pixel vicini. Questa caratteristica permette inoltre di \textbf{ridurre il numero di pesi necessari da imparare},
+rendendo quindi la rete più efficiente.
+La figura \ref{fig:cnn_example} mostra l'architettura di LeNet-5 come esempio di rete neurale convolutiva.
+Oltre ai layer di input e di output, le reti neurali convolutive sono formate principalmente da tre tipi di strati \cite{oshea_introduction_2015}:
+\begin{itemize}
+    \item Strati convolutivi
+    \item Strati di pooling (o di subsampling)
+    \item Strati completamente connessi
+\end{itemize}
+\begin{figure}
+    \centering
+    \includegraphics[width = \textwidth]{images/le-net.png}
+    \caption{Architettura di LeNet-5. Da \cite{gu_recent_2018}}
+    \label{fig:cnn_example}
+\end{figure}
+\subsubsection{Strato di input}
+Come nelle reti neurali tradizionali, lo strato di input di una rete neurale convolutiva conterrà i valori delle istanze
+che verranno passate alla rete. In particolare per le immagini, essi sono i \textbf{valori numerici dei suoi pixel}. Possiamo
+quindi vedere un'immagine come una matrice di dimensioni $W \times H \times C$, con $W$ la larghezza dell'immagine, $H$ l'altezza dell'immagine
+e $C$ il numero di \textbf{canali colore} (per esempio, $C =3$ se l'immagine ha canali colore RGB).
+\subsubsection{Strati convolutivi}
 
 
+
+
+
+\subsubsection{Strati di pooling}
+\subsubsection{Strati completamente connessi}
+\subsubsection{Altri tipi di strati}
 \section{Reti residuali}
 \subsection{ResNet50}
 
