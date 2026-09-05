@@ -8,9 +8,29 @@ from scipy.integrate import trapezoid
 from scipy.stats import linregress
 
 
+DEFAULT_PLOT_DIR = Path(__file__).resolve().parents[2] / "eda_outputs" / "plot_metrics"
+
+
+def _prepare_plot_output(save_path=None, default_name=None, subdir="comparison"):
+    """Return the target path for a plot and create the output folder if needed."""
+    if save_path is not None:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        return save_path
+
+    out_dir = DEFAULT_PLOT_DIR / subdir if subdir else DEFAULT_PLOT_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir / default_name if default_name is not None else out_dir
+
+
+def _to_float(value):
+    """Convert a JSON-derived scalar to float without upsetting static type checks."""
+    return float(value)
+
+
 def show_corruption_comparison(corruption_type, max_severity=5,
                                imagenet_c_path="../original_datasets/imagenet_c_datasets",
-                               random_idx=True, sample_idx=None, save_path=None):
+                               random_idx=True, sample_idx=None, save_path=None, save_dir=None):
     """
     Show the same image from ImageNet-C at different corruption severity levels.
 
@@ -28,6 +48,10 @@ def show_corruption_comparison(corruption_type, max_severity=5,
         Specific sample index to use (ignored if random_idx=True)
     save_path : str
         Path to save the figure (optional)
+        If omitted, the figure is saved automatically in the default plots folder
+    save_dir : str
+        Optional backward-compatible alias; if provided and `save_path` is not set,
+        the figure is saved inside this directory
     """
     imagenet_c_path = Path(imagenet_c_path)
 
@@ -68,6 +92,10 @@ def show_corruption_comparison(corruption_type, max_severity=5,
             axes[severity - 1].axis('off')
 
     plt.tight_layout()
+
+    if save_path is None and save_dir is not None:
+        save_path = Path(save_dir) / f"{corruption_type}_sample_{sample_idx}.png"
+    save_path = _prepare_plot_output(save_path, f"{corruption_type}_sample_{sample_idx}.png", subdir="image_comparisons")
 
     if save_path:
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
@@ -210,7 +238,8 @@ def aggregate_corruption_metrics_wide(results_path="../results/ImageNetC"):
     return df_wide
 
 
-def plot_corruption_metrics(results_path="../results/ImageNetC", corruption_type=None, metric_name='accuracy'):
+def plot_corruption_metrics(results_path="../results/ImageNetC", corruption_type=None, metric_name='accuracy',
+                            save_path=None, save_dir=None):
     """
     Plot metric trend across severity levels for a specific corruption type.
     
@@ -223,6 +252,12 @@ def plot_corruption_metrics(results_path="../results/ImageNetC", corruption_type
         If None, lists available corruptions
     metric_name : str
         Name of the metric to plot (e.g., 'accuracy', 'f1_score', etc.)
+    save_path : str
+        Path where the figure should be saved
+        If omitted, the figure is saved automatically in the default plots folder
+    save_dir : str
+        Optional backward-compatible alias; if provided and `save_path` is not set,
+        the figure is saved inside this directory
     """
     results_path = Path(results_path)
     
@@ -259,10 +294,10 @@ def plot_corruption_metrics(results_path="../results/ImageNetC", corruption_type
             if metric_name in baseline_metrics:
                 m = baseline_metrics[metric_name]
                 if isinstance(m, dict) and 'mean' in m:
-                    baseline_value = m.get('mean')
+                    baseline_value = _to_float(m.get('mean'))
                     baseline_ci = (m.get('ci_lower'), m.get('ci_upper'))
                 else:
-                    baseline_value = m
+                    baseline_value = _to_float(m)
 
     # Find and load only files for this corruption type
     data = []
@@ -288,11 +323,11 @@ def plot_corruption_metrics(results_path="../results/ImageNetC", corruption_type
                         if metric_name in metrics:
                             mv = metrics[metric_name]
                             if isinstance(mv, dict) and 'mean' in mv:
-                                val = mv.get('mean')
+                                val = _to_float(mv.get('mean'))
                                 ci_l = mv.get('ci_lower')
                                 ci_u = mv.get('ci_upper')
                             else:
-                                val = mv
+                                val = _to_float(mv)
                                 ci_l = None
                                 ci_u = None
 
@@ -319,7 +354,7 @@ def plot_corruption_metrics(results_path="../results/ImageNetC", corruption_type
         return
     
     severities = [d['severity'] for d in data]
-    values = [d[metric_name] for d in data]
+    values = [float(d[metric_name]) for d in data]
     ci_lows = [d.get('ci_lower') for d in data]
     ci_ups = [d.get('ci_upper') for d in data]
 
@@ -332,17 +367,19 @@ def plot_corruption_metrics(results_path="../results/ImageNetC", corruption_type
     if any(ci_lows) and any(ci_ups):
         # convert Nones to nan to avoid errors
         import numpy as _np
-        lower = _np.array([x if x is not None else _np.nan for x in ci_lows], dtype=float)
-        upper = _np.array([x if x is not None else _np.nan for x in ci_ups], dtype=float)
-        ax.fill_between(severities, lower, upper, color='C0', alpha=0.2)
+        severities_arr = _np.asarray(severities, dtype=float)
+        values_arr = _np.asarray(values, dtype=float)
+        lower = _np.asarray([float(x) if x is not None else _np.nan for x in ci_lows], dtype=float)
+        upper = _np.asarray([float(x) if x is not None else _np.nan for x in ci_ups], dtype=float)
+        ax.fill_between(severities_arr, lower, upper, color='C0', alpha=0.2)
 
     # Aggiungi linea baseline se esiste
     if baseline_value is not None:
-        ax.axhline(y=baseline_value, color='r', linestyle='--', linewidth=2, label='Baseline', alpha=0.7)
+        ax.axhline(y=float(baseline_value), color='r', linestyle='--', linewidth=2, label='Baseline', alpha=0.7)
         # If baseline CI available, shade it
         if baseline_ci[0] is not None and baseline_ci[1] is not None:
             import numpy as _np
-            ax.fill_between([0, 6], [baseline_ci[0], baseline_ci[0]], [baseline_ci[1], baseline_ci[1]],
+            ax.fill_between([0, 6], [float(baseline_ci[0]), float(baseline_ci[0])], [float(baseline_ci[1]), float(baseline_ci[1])],
                             color='r', alpha=0.08)
 
     ax.set_xlabel('Severity', fontsize=12)
@@ -354,13 +391,22 @@ def plot_corruption_metrics(results_path="../results/ImageNetC", corruption_type
     ax.legend(fontsize=11)
     
     plt.tight_layout()
+    if save_path is None and save_dir is not None:
+        save_path = Path(save_dir) / f"{corruption_type}_{metric_name}.png"
+    save_path = _prepare_plot_output(save_path, f"{corruption_type}_{metric_name}.png", subdir="metrics")
+
+    if save_path is not None:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Figure saved to {save_path}")
+
     plt.show()
 
 
-def plot_corruption_category(results_path="../results/ImageNetC", category=None, metric_name='accuracy'):
+def plot_corruption_category(results_path="../results/ImageNetC", category=None, metric_name='accuracy',
+                             save_path=None, save_dir=None):
     """
     Plot metric trends for all corruptions in a category (noise, blur, digital, weather).
-    
+
     Parameters:
     -----------
     results_path : str
@@ -370,142 +416,161 @@ def plot_corruption_category(results_path="../results/ImageNetC", category=None,
         If None, lists available categories
     metric_name : str
         Name of the metric to plot (e.g., 'accuracy', 'f1_score', etc.)
+    save_path : str
+        Path where the figure should be saved
+        If omitted, the figure is saved automatically in the default plots folder
+    save_dir : str
+        Optional backward-compatible alias; if provided and `save_path` is not set,
+        the figure is saved inside this directory
     """
     results_path = Path(results_path)
-    
-    # Define corruption categories
+
     categories_map = {
         'noise': ['gaussian_noise', 'impulse_noise', 'shot_noise'],
         'blur': ['defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur'],
         'digital': ['contrast', 'elastic_transform', 'jpeg_compression', 'pixelate'],
-        'weather': ['brightness','fog', 'frost', 'snow']
+        'weather': ['brightness', 'fog', 'frost', 'snow'],
     }
-    
+
     if category is None:
         print("Available categories:")
-        for cat in categories_map.keys():
+        for cat in categories_map:
             print(f"  - {cat}")
         return
-    
-    # Get list of corruptions to plot
+
     if isinstance(category, str):
-        if category in categories_map:
-            corruptions_to_plot = categories_map[category]
-        else:
+        if category not in categories_map:
             print(f"Category '{category}' not found.")
             print(f"Available: {list(categories_map.keys())}")
             return
+        corruptions_to_plot = categories_map[category]
+        category_name = category
     else:
-        corruptions_to_plot = category  # Assume it's a list
-    
-    # Load baseline (support dict-with-stats)
+        corruptions_to_plot = list(category)
+        category_name = "custom"
+
     baseline_value = None
     baseline_ci = (None, None)
     baseline_file = results_path / "baseline_metrics.json"
     if baseline_file.exists():
         with open(baseline_file, 'r') as f:
             baseline_metrics = json.load(f)
-            if metric_name in baseline_metrics:
-                m = baseline_metrics[metric_name]
-                if isinstance(m, dict) and 'mean' in m:
-                    baseline_value = m.get('mean')
-                    baseline_ci = (m.get('ci_lower'), m.get('ci_upper'))
-                else:
-                    baseline_value = m
+        if metric_name in baseline_metrics:
+            m = baseline_metrics[metric_name]
+            if isinstance(m, dict) and 'mean' in m:
+                baseline_value = _to_float(m.get('mean'))
+                baseline_ci = (m.get('ci_lower'), m.get('ci_upper'))
+            else:
+                baseline_value = _to_float(m)
 
-    # Create figure
+    import numpy as _np
+
     fig, ax = plt.subplots(figsize=(12, 7))
-    
-    # Plot each corruption type
-    for corruption_type in corruptions_to_plot:
+
+    for corruption_name in corruptions_to_plot:
         data = []
-        
         for category_dir in results_path.iterdir():
             if not category_dir.is_dir():
                 continue
-            
             for metrics_file in sorted(category_dir.glob("*_metrics.json")):
                 filename = metrics_file.stem
                 if filename.endswith("_metrics"):
                     filename = filename[:-8]
-                
-                if "_sev_" in filename:
-                    parts = filename.split("_sev_")
-                    if len(parts) == 2 and parts[0] == corruption_type:
-                        try:
-                            severity = int(parts[1])
-                            with open(metrics_file, 'r') as f:
-                                metrics = json.load(f)
-                            
-                            if metric_name in metrics:
-                                mv = metrics[metric_name]
-                                if isinstance(mv, dict) and 'mean' in mv:
-                                    val = mv.get('mean')
-                                    ci_l = mv.get('ci_lower')
-                                    ci_u = mv.get('ci_upper')
-                                else:
-                                    val = mv
-                                    ci_l = None
-                                    ci_u = None
-                                data.append({
-                                    'severity': severity,
-                                    metric_name: val,
-                                    'ci_lower': ci_l,
-                                    'ci_upper': ci_u
-                                })
-                        except ValueError:
-                            pass
-        
-        if data:
-            data = sorted(data, key=lambda x: x['severity'])
-            severities = [d['severity'] for d in data]
-            values = [d[metric_name] for d in data]
-            ci_lows = [d.get('ci_lower') for d in data]
-            ci_ups = [d.get('ci_upper') for d in data]
+                if "_sev_" not in filename:
+                    continue
+                parts = filename.split("_sev_")
+                if len(parts) != 2 or parts[0] != corruption_name:
+                    continue
+                try:
+                    severity = int(parts[1])
+                except ValueError:
+                    continue
 
-            line, = ax.plot(severities, values, marker='o', linewidth=2, markersize=8,
-                            label=corruption_type.replace('_', ' ').title())
+                with open(metrics_file, 'r') as f:
+                    metrics = json.load(f)
 
-            if any(v is not None for v in ci_lows) and any(v is not None for v in ci_ups):
-                import numpy as _np
-                lower = _np.array([x if x is not None else _np.nan for x in ci_lows], dtype=float)
-                upper = _np.array([x if x is not None else _np.nan for x in ci_ups], dtype=float)
-                yerr = _np.vstack([
-                    _np.clip(_np.array(values, dtype=float) - lower, a_min=0.0, a_max=None),
-                    _np.clip(upper - _np.array(values, dtype=float), a_min=0.0, a_max=None)
-                ])
-                ax.fill_between(severities, lower, upper, color=line.get_color(), alpha=0.18, zorder=1)
-                ax.errorbar(
-                    severities,
-                    values,
-                    yerr=yerr,
-                    fmt='none',
-                    ecolor=line.get_color(),
-                    elinewidth=1.8,
-                    capsize=5,
-                    capthick=1.8,
-                    alpha=0.95,
-                    zorder=3,
-                )
+                if metric_name not in metrics:
+                    continue
 
-    # Aggiungi linea baseline se esiste
+                mv = metrics[metric_name]
+                if isinstance(mv, dict) and 'mean' in mv:
+                    val = _to_float(mv.get('mean'))
+                    ci_l = mv.get('ci_lower')
+                    ci_u = mv.get('ci_upper')
+                else:
+                    val = _to_float(mv)
+                    ci_l = None
+                    ci_u = None
+
+                data.append({
+                    'severity': severity,
+                    'value': val,
+                    'ci_lower': ci_l,
+                    'ci_upper': ci_u,
+                })
+
+        if not data:
+            continue
+
+        data = sorted(data, key=lambda x: x['severity'])
+        severities = [d['severity'] for d in data]
+        values = [d['value'] for d in data]
+        ci_lows = [d.get('ci_lower') for d in data]
+        ci_ups = [d.get('ci_upper') for d in data]
+
+        severities_arr = _np.asarray(severities, dtype=float)
+        values_arr = _np.asarray(values, dtype=float)
+        line, = ax.plot(severities_arr, values_arr, marker='o', linewidth=2, markersize=8,
+                        label=corruption_name.replace('_', ' ').title())
+
+        if any(v is not None for v in ci_lows) and any(v is not None for v in ci_ups):
+            lower = _np.asarray([float(x) if x is not None else _np.nan for x in ci_lows], dtype=float)
+            upper = _np.asarray([float(x) if x is not None else _np.nan for x in ci_ups], dtype=float)
+            yerr = _np.vstack([
+                _np.clip(values_arr - lower, a_min=0.0, a_max=None),
+                _np.clip(upper - values_arr, a_min=0.0, a_max=None),
+            ])
+            ax.fill_between(severities_arr, lower, upper, color=line.get_color(), alpha=0.18, zorder=1)
+            ax.errorbar(
+                severities_arr,
+                values_arr,
+                yerr=yerr,
+                fmt='none',
+                ecolor=line.get_color(),
+                elinewidth=1.8,
+                capsize=5,
+                capthick=1.8,
+                alpha=0.95,
+                zorder=3,
+            )
+
     if baseline_value is not None:
-        ax.axhline(y=baseline_value, color='red', linestyle='--', linewidth=2, label='Baseline', alpha=0.7)
+        ax.axhline(y=float(baseline_value), color='red', linestyle='--', linewidth=2, label='Baseline', alpha=0.7)
         if baseline_ci[0] is not None and baseline_ci[1] is not None:
-            import numpy as _np
-            ax.fill_between([0, 6], [baseline_ci[0], baseline_ci[0]], [baseline_ci[1], baseline_ci[1]],
-                            color='red', alpha=0.06)
+            ax.fill_between(
+                [0, 6],
+                [float(baseline_ci[0]), float(baseline_ci[0])],
+                [float(baseline_ci[1]), float(baseline_ci[1])],
+                color='red', alpha=0.06,
+            )
 
     ax.set_xlabel('Severity', fontsize=12)
     ax.set_ylabel(metric_name.replace('_', ' ').title(), fontsize=12)
-    category_title = category if isinstance(category, str) else "Custom"
-    ax.set_title(f"{category_title.title()} Corruptions - {metric_name.replace('_', ' ').title()} vs Severity", 
+    ax.set_title(f"{category_name.title()} Corruptions - {metric_name.replace('_', ' ').title()} vs Severity",
                  fontsize=14, fontweight='bold')
     ax.grid(True, alpha=0.3)
     ax.set_xticks(range(1, 6))
     ax.legend(fontsize=10, loc='best')
-    
+
     plt.tight_layout()
+    if save_path is None and save_dir is not None:
+        save_path = Path(save_dir) / f"{category_name}_{metric_name}.png"
+    save_path = _prepare_plot_output(save_path, f"{category_name}_{metric_name}.png", subdir="categories")
+
+    if save_path is not None:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Figure saved to {save_path}")
+
     plt.show()
 
 
@@ -537,9 +602,9 @@ def calculate_degradation(results_path="../results/ImageNetC", metric_name='accu
         baseline_metrics = json.load(f)
         m = baseline_metrics.get(metric_name)
         if isinstance(m, dict) and 'mean' in m:
-            baseline_value = m.get('mean')
+                baseline_value = _to_float(m.get('mean'))
         else:
-            baseline_value = m
+                baseline_value = _to_float(m)
 
     if baseline_value is None:
         print(f"Metric '{metric_name}' not found in baseline!")
@@ -569,9 +634,9 @@ def calculate_degradation(results_path="../results/ImageNetC", metric_name='accu
                         if metric_name in metrics:
                             mv = metrics[metric_name]
                             if isinstance(mv, dict) and 'mean' in mv:
-                                corrupted_value = mv.get('mean')
+                                corrupted_value = float(mv.get('mean'))
                             else:
-                                corrupted_value = mv
+                                corrupted_value = float(mv)
 
                             degradation = (baseline_value - corrupted_value) / baseline_value
 
@@ -588,7 +653,7 @@ def calculate_degradation(results_path="../results/ImageNetC", metric_name='accu
 
 
 def plot_degradation(results_path="../results/ImageNetC", corruption_type=None,
-                    category=None, metric_name='accuracy'):
+                    category=None, metric_name='accuracy', save_path=None, save_dir=None):
     """
     Plot degradation trend across severity levels.
 
@@ -602,6 +667,12 @@ def plot_degradation(results_path="../results/ImageNetC", corruption_type=None,
         Category to plot: 'noise', 'blur', 'digital', 'weather'
     metric_name : str
         Name of the metric to calculate degradation for
+    save_path : str
+        Path where the figure should be saved
+        If omitted, the figure is saved automatically in the default plots folder
+    save_dir : str
+        Optional backward-compatible alias; if provided and `save_path` is not set,
+        the figure is saved inside this directory
     """
     df_degradation = calculate_degradation(results_path, metric_name)
 
@@ -619,7 +690,7 @@ def plot_degradation(results_path="../results/ImageNetC", corruption_type=None,
 
     if corruption_type is not None:
         # Plot single corruption type
-        data = df_degradation[df_degradation['corruption_type'] == corruption_type].sort_values('severity')
+        data = df_degradation[df_degradation['corruption_type'] == corruption_type].sort_values(by='severity')
 
         if data.empty:
             print(f"Corruption '{corruption_type}' not found!")
@@ -647,7 +718,7 @@ def plot_degradation(results_path="../results/ImageNetC", corruption_type=None,
         fig, ax = plt.subplots(figsize=(12, 7))
 
         for corruption in corruptions:
-            data = df_degradation[df_degradation['corruption_type'] == corruption].sort_values('severity')
+            data = df_degradation[df_degradation['corruption_type'] == corruption].sort_values(by='severity')
             if not data.empty:
                 ax.plot(data['severity'], data['degradation'], marker='o', linewidth=2, markersize=8,
                        label=corruption.replace('_', ' ').title())
@@ -665,6 +736,18 @@ def plot_degradation(results_path="../results/ImageNetC", corruption_type=None,
         return
 
     plt.tight_layout()
+    if corruption_type is not None:
+        filename = f"{corruption_type}_{metric_name}_degradation.png"
+    else:
+        filename = f"{category}_{metric_name}_degradation.png"
+    if save_path is None and save_dir is not None:
+        save_path = Path(save_dir) / filename
+    save_path = _prepare_plot_output(save_path, filename, subdir="degradation")
+
+    if save_path is not None:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Figure saved to {save_path}")
+
     plt.show()
 
 
