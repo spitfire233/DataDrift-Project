@@ -15,7 +15,6 @@ from model_testing.utils import (
     run_inference,
     compute_metrics,
     save_features_csv,
-    run_repeated_evaluation,
     run_repeated_evaluation_full_forward,
 )
 from torchvision import transforms

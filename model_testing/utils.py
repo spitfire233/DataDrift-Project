@@ -250,49 +250,6 @@ def compute_metrics_ci(metrics_list, ci=0.95):
 
     return stats
 
-
-def run_repeated_evaluation(model, dataloader, device, runs=5, k=5, features=None, y_true=None):
-    """
-    Run inference `runs` times on the provided dataloader, compute metrics for each
-    run and aggregate them returning confidence-interval statistics.
-
-    The function returns the result of `compute_metrics_ci` applied to the list of
-    per-run metrics.
-    """
-    # Strategy to minimize runtime:
-    # 1) Run a single pass over the dataloader to extract penultimate-layer features
-    #    and true labels (this is the expensive convolutional part).
-    # 2) For each repeated run, compute logits by applying only the final linear
-    #    layer (model.fc) to the cached features. This is much faster than
-    #    repeating the entire forward pass.
-
-    # If caller provided precomputed features and labels, reuse them to avoid
-    # an extra expensive forward pass. Otherwise perform a single pass to
-    # collect them.
-    if features is None or y_true is None:
-        y_true, _, _, features = run_inference(model, dataloader, device, k=k, return_features=True)
-
-    # Convert features and labels to tensors on the correct device
-    features_tensor = torch.from_numpy(features).to(device)
-    y_true_np = np.asarray(y_true)
-
-    metrics_list = []
-
-    for i in range(runs):
-        # Compute logits only from cached features
-        with torch.no_grad():
-            logits = model.fc(features_tensor)
-
-        topk_preds = logits.topk(k, dim=1).indices.cpu().numpy()
-        y_pred = topk_preds[:, 0]
-        topk_correct = (topk_preds == y_true_np.reshape(-1, 1)).any(axis=1)
-
-        metrics = compute_metrics(y_true_np, y_pred, topk_correct)
-        metrics_list.append(metrics)
-
-    return compute_metrics_ci(metrics_list)
-
-
 class CollateFnAugment:
     """
     Collate function that applies an optional augment_fn (PIL -> PIL) before the

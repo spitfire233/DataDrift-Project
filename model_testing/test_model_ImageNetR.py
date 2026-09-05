@@ -7,9 +7,7 @@ from model_testing.model import build_model_and_transforms, get_device, CollateF
 from model_testing.utils import (
     run_inference,
     compute_metrics,
-    run_repeated_evaluation,
     run_repeated_evaluation_full_forward,
-    save_features_csv,
 )
 
 logger = logging.getLogger(__name__)
