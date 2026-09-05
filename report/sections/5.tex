@@ -474,5 +474,150 @@ Confrontando i risultati ottenuti per la rilevazione del drift sulle feature vis
 \section{Analisi delle performance del modello}
 In questa sezione vengono analizzate le performance del modello ResNet-50 su ImageNet-R e ImageNet-C. Per ImageNet-R, confronteremo le metriche ottenute dalla classificazione delle immagini del dataset con le metriche ottenute dalla classificazione delle immagini di ImageNet-1k. Per ImageNet-C, invece, analizzeremo l'accuracy del modello al variare della severità della corruzione, calcolando la degradazione delle performance rispetto alla severity, calcolando la robustezza del modello e misurando quanto linearmente la severità della corruzione influisca sulla degradazione delle performance del modello.
 \subsection{ImageNet-1k vs ImageNet-R}
-
+Per ottenere dei valori statisticamente significativi, abbiamo ripetuto la classificazione per cinque volte, in modo da ottenere più misurazioni delle metriche e calcolare gli intervalli di confidenza. I risultati ottenuti sono presentati in tabella \ref{tab:base_drift_metrics}. In particolare, la colonna Sig. indica la significatività statistica, secondo il test t Welch, del delta tra le due misure ottenute.
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lcccc}
+\hline
+\textbf{Metric} & \textbf{ImageNet-1k (mean)} & \textbf{ImageNet-R (mean)} & \textbf{Delta (mean $\pm$ CI)} & \textbf{Sig.} \\
+\hline
+Cohen's kappa       & 0.8426 & 0.3021 & 0.5404 [0.5390, 0.5419] & YES \\
+Accuracy            & 0.8433 & 0.3034 & 0.5398 [0.5383, 0.5413] & YES \\
+Balanced accuracy   & 0.8433 & 0.3034 & 0.5398 [0.5383, 0.5413] & YES \\
+Recall weighted     & 0.8433 & 0.3034 & 0.5398 [0.5383, 0.5413] & YES \\
+Precision micro     & 0.8433 & 0.3034 & 0.5398 [0.5383, 0.5413] & YES \\
+Recall micro        & 0.8433 & 0.3034 & 0.5398 [0.5383, 0.5413] & YES \\
+F1 micro            & 0.8433 & 0.3034 & 0.5398 [0.5383, 0.5413] & YES \\
+MCC                 & 0.8427 & 0.3035 & 0.5392 [0.5377, 0.5407] & YES \\
+Top-5 accuracy      & 0.9635 & 0.4572 & 0.5063 [0.5054, 0.5072] & YES \\
+F1 weighted         & 0.8962 & 0.4178 & 0.4784 [0.4766, 0.4803] & YES \\
+Recall macro        & 0.2440 & 0.0725 & 0.1715 [0.1694, 0.1735] & YES \\
+F1 macro            & 0.2593 & 0.0998 & 0.1595 [0.1574, 0.1616] & YES \\
+Precision weighted  & 0.9689 & 0.8184 & 0.1504 [0.1466, 0.1543] & YES \\
+Precision macro     & 0.2804 & 0.1956 & 0.0848 [0.0820, 0.0875] & YES \\
+\hline
+\end{tabular}
+\caption{Confronto tra le metriche di performance del modello}
+\label{tab:base_drift_metrics}
+\end{table}
+Come si può notare dalla tabella, tutte le metriche registrare calano significativamente quando il modello si trova a classificare i dati affetti da drift. Infatti, ImageNet-R presenta un drift sia sulle feature visive (cinque feature su sei presentano drift) sia sulle feature del modello. In particolare, l'accuracy, su cui ci siamo concentrati durante l'analisi di ImageNet-C, cala drasticamente, registrando un decremento del $53.9\%$.
 \subsection{ImageNet-1k vs ImageNet-C}
+Per il confronto con i risultati ottenuti su ImageNet-C, abbiamo misurato l'accuracy al variare della severità per ogni classe di corruzione e l'abbiamo confrontata con l'accuracy ottenuta da ImageNet-1k. Abbiamo inoltre misurato la degradazione dell'accuracy al variare della severità della corruzione, calcolato l'AUC della robustezza al variare della severità e calcolato il coefficiente $R^2$ della degradazione.
+\subsubsection{Blur}
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lccc}
+\hline
+\textbf{Corruption Type} & \textbf{AUC} & \textbf{Slope} & $\mathbf{R^2}$ \\
+\hline
+Motion blur  & 0.561179 & 0.171572 & 0.985192 \\
+Zoom blur    & 0.545493 & 0.097476 & 0.994757 \\
+Defocus blur & 0.534979 & 0.155609 & 0.986706 \\
+Glass blur   & 0.369184 & 0.176186 & 0.904344 \\
+\hline
+\end{tabular}
+\caption{Metriche di performance per la classificazione con corruzione di tipo blur}
+\label{tab:blur_perfomance}
+\end{table}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/categories/blur_accuracy.png}
+  \caption{Valore dell'accuracy al variare della severità per corruzioni di tipo blur}
+  \label{fig:blur_accuracy}
+\end{figure}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/degradation/blur_accuracy_degradation.png}
+  \caption{Degradazione dell'accuracy al variare della severità per corruzioni di tipo blur}
+  \label{fig:blur_degradation}
+\end{figure}
+Come si può notare dal grafico in figura \ref{fig:blur_degradation}, la degradazione dell'accuracy in generale cresce al variare della severity. Ciò è coerente con l'andamento dell'accuracy riportata in figura \ref{fig:blur_accuracy}. In particolare, il coefficiente $R^2$ calcolato per glass\_blur indica che la degradazione cresce meno linearmente rispetto agli altri tipi di blur. Infatti, si registra un aumento repentino della degradazione dalla severity 3. Inoltre, al livello di severity 5, il valore di accuracy per glass\_blur raggiunge un valore inferiore a $0.1$, infatti presenta una AUC della robustezza molto bassa. 
+D'altro canto, il coefficiente $R^2$ calcolato per zoom\_blur indica che la degradazione delle performance cresce linearmente con il livello di severity, indicando una correlazione tra degradazione e severità per questo tipo di sporcatura.
+\subsubsection{Digital}
+\begin{table}[htbp]
+\centering
+
+\begin{tabular}{lccc}
+\hline
+\textbf{Corruption Type} & \textbf{AUC} & \textbf{Slope} & $\mathbf{R^2}$ \\
+\hline
+JPEG compression   & 0.770172 & 0.056896 & 0.925757 \\
+Contrast           & 0.731614 & 0.131767 & 0.846042 \\
+Pixelate           & 0.708785 & 0.114113 & 0.941701 \\
+Elastic transform  & 0.605682 & 0.153883 & 0.873604 \\
+\hline
+\end{tabular}
+\caption{Metriche di performance per la classificazione con corruzione di tipo digital}
+\label{tab:digital_corruption_metrics}
+\end{table}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/categories/digital_accuracy.png}
+  \caption{Valore dell'accuracy al variare della severità per corruzioni di tipo digital}
+  \label{fig:digital_accuracy}
+\end{figure}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/degradation/digital_accuracy_degradation.png}
+  \caption{Degradazione dell'accuracy al variare della severità per corruzioni di tipo digital}
+  \label{fig:digital_degradation}
+\end{figure}
+Come si può notare dal grafico in figura \ref{fig:digital_accuracy}, l'accuracy decresce con il livello di severità della corruzione eccezion fatta per elastic\_transform, la quale presenta un breve incremento dell'accuracy passando dal livello due al livello tre di severità. I risultati ottenuti si riflettono nei valori di robustezza del modello, presentati in figura \ref{fig:digital_degradation}. In particolare, la degradazione delle performance non segue affatto un andamento lineare per contrast e elastic\_transform, mentre per JPEG\_compression e pixelate sono più vicini ad un andamento lineare.
+\subsubsection{Noise}
+\begin{table}[htbp]
+\centering
+
+\begin{tabular}{lccc}
+\hline
+\textbf{Corruption Type} & \textbf{AUC} & \textbf{Slope} & $\mathbf{R^2}$ \\
+\hline
+Gaussian noise  & 0.535206 & 0.184893 & 0.979393 \\
+Shot noise      & 0.512519 & 0.182769 & 0.983590 \\
+Impulse noise   & 0.482528 & 0.163862 & 0.970980 \\
+\hline
+\end{tabular}
+\caption{Metriche di performance per la classificazione con corruzione di tipo noise}
+\label{tab:noise_corruption_metrics}
+\end{table}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/categories/noise_accuracy.png}
+  \caption{Valore dell'accuracy al variare della severità per corruzioni di tipo digital}
+  \label{fig:noise_accuracy}
+\end{figure}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/degradation/noise_accuracy_degradation.png}
+  \caption{Degradazione dell'accuracy al variare della severità per corruzioni di tipo noise}
+  \label{fig:noise_degradation}
+\end{figure}
+Come si può notare dalla tabella \ref{tab:noise_corruption_metrics} e dalle figure \ref{fig:noise_accuracy} e \ref{fig:noise_degradation}, il calo di performance e l'aumento della degradazione seguono un andamento molti vicino ad un andamento lineare. Le performance del modello per questa classe di sporcatura calano molto al variare della severity, arrivando addirittura a un valore di quasi $0.1$ di accuratezza a livello di severità 5. I valori AUC riflettono questo calo, arrivando nel caso di impulse\_noise ad un valore inferiore a $0.5$.
+\subsubsection{Weather}
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lccc}
+\hline
+\textbf{Corruption Type} & \textbf{AUC} & \textbf{Slope} & $\mathbf{R^2}$ \\
+\hline
+Brightness & 0.899717 & 0.034920 & 0.932987 \\
+Fog        & 0.736412 & 0.097285 & 0.892568 \\
+Frost      & 0.574758 & 0.102072 & 0.924922 \\
+Snow       & 0.503722 & 0.097529 & 0.865135 \\
+\hline
+\end{tabular}
+\caption{Metriche di performance per la classificazione con corruzione di tipo weather.}
+\label{tab:weather_corruption_metrics}
+\end{table}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/categories/weather_accuracy.png}
+  \caption{Valore dell'accuracy al variare della severità per corruzioni di tipo weather}
+  \label{fig:weather_accuracy}
+\end{figure}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/degradation/weather_accuracy_degradation.png}
+  \caption{Degradazione dell'accuracy al variare della severità per corruzioni di tipo weather}
+  \label{fig:weather_degradation}
+\end{figure}
+Come si può notare dai valori in tabella \ref{tab:weather_corruption_metrics} e dalle figure \ref{fig:weather_accuracy} e \ref{fig:weather_degradation}, l'accuratezza registrata dal modello decresce per ogni tipo sporcatura e per ogni livello di severity. Tuttavia, il decremento dell'accuracy è decisamente meno marcato per brightness, su cui il modello riesce a mantenere performance relativamente elevate rispetto agli altri tipi di sporcatura, mantenendo anche un AUC della robustezza molto elevata. Inoltre, la degradazione delle performance per brightness segue un andamento quasi lineare ma con un'inclinazione bassa. Inoltre, nonostante il calo dell'accuracy, fog mantiene comunque un'AUC della robustezza moderatamente elevata, indicando quindi resistenza maggiore a questo tipo di sporcatura.
