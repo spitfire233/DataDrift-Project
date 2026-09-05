@@ -7,7 +7,7 @@ Per analizzare l'avvenimento di un data drift rispetto ad imagenet-1k, ci avvarr
 	\item Nitidezza (Sharpness)
 	\item Media dei canali colore
 \end{itemize}
-\subsubsection{ImageNet-1k vs ImageNet-R}
+\subsection{ImageNet-1k vs ImageNet-R}
 Come si può evincere dal grafico in figura \ref{fig:imagenet_r_drift_image}, la maggior parte delle feature presenta un drift rispetto alla distribuzione di riferimento (imagenet-1k) secondo la distanza di Wesserstein.
 In particolare, tutte le misure tranne sharpness presentano un drift significativo, con valori di distanza di Wesserstein superiori a 0.1. La misura di sharpness, invece, risulta essere più simile alla distribuzione di riferimento, con un valore di distanza di Wesserstein inferiore a 0.1. Possiamo inoltre osservare che la distribuzione di brightness presenta una distanza di Wesserstein molto maggiore dei canali colore. Questo potrebbe essere dovuto al fatto che essendo ImageNet-R formato da immagini artistiche, tra cui disegni è possibile che ci sia un maggior numero d'immagini con uno sfondo bianco, dunque una maggiore varianza nella luminosità.
 \begin{figure}
@@ -16,7 +16,7 @@ In particolare, tutte le misure tranne sharpness presentano un drift significati
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-R.}
 	\label{fig:imagenet_r_drift_image}
 \end{figure}
-\subsubsection{ImageNet-1k vs ImageNet-C}
+\subsection{ImageNet-1k vs ImageNet-C}
 Per quanto riguarda ImageNet-C, abbiamo osservato i risultati distinguendo le corruzioni per tipo di corruzione e severità (1-5).
 \newcommand{\driftcell}[1]{%
   \ifdim #1pt < 0.1pt
@@ -25,6 +25,7 @@ Per quanto riguarda ImageNet-C, abbiamo osservato i risultati distinguendo le co
     \textcolor{red!75!black}{#1}%
   \fi
 }
+% noise
 \begin{table}[H]
 	\centering
 	\label{tab:imagenet_c_drift_metrics_noise}
@@ -54,6 +55,15 @@ shot\_noise & sharpness & \driftcell{1.504179} & \driftcell{2.558167} & \driftce
 \end{tabular}
 \caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione noise.}
 \end{table}
+Possiamo notare dai dati nella tabella \ref{tab:imagenet_c_drift_metrics_noise} che per tutti i tipi di rumore le feature rms\_contrast e sharpness driftano a tutti i livelli di severità, mentre le altre feature driftano solo a severità più alte. In particolare, la feature sharpness presenta un drift molto più marcato rispetto alle altre feature, con valori di distanza di Wesserstein che superano 4 per la severità 5. Questo, può essere casuato dal fatto che il rumore può coprire i "bordi" degli oggetti. Possiamo notare inoltre che mean\_green e mean\_red per shot\_noise non driftano, mentre mean\_blue drifta solo al livello di severity 5.
+Osservando la figura \ref{fig:imagenet_c_drift_severity_noise} possiamo notare che per noise la distanza nei canali colore non aumenta sempre all'aumentare della severità, questa diminuisce da severity 1 a severity 3. La distanza nelle altre feature aumenta invece sempre per tutti i rumori all'aumentare della severità.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/severity_curves/imagenet_c_severity_drift_noise.png}
+	\caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione noise, al variare della severità.}
+	\label{fig:imagenet_c_drift_severity_noise}
+\end{figure}
+% blur
 \begin{table}[H]
 	\centering
 	\label{tab:imagenet_c_drift_metrics_blur}
@@ -89,6 +99,14 @@ zoom\_blur & sharpness & \driftcell{1.165725} & \driftcell{1.206743} & \driftcel
 \end{tabular}
 \caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione blur.}
 \end{table}
+Possiamo notare dai dati in tabella \ref{tab:imagenet_c_drift_metrics_blur} che per tutti i tipi di blur la brightness e i canali colore non driftano, questo accade perché i blur non modificano la luminosità o i colori delle immagini. Le feature rms\_contrast e sharpness driftano a tutti i livelli di severità. In particolare, la feature sharpness presenta un drift molto più marcato rispetto alle altre feature, con valori di distanza di Wesserstein che superano 1.2 per la severità 5. Questo, può essere causato dal fatto che il blur può coprire i "bordi" degli oggetti, diminuendo la nitidezza e il contrasto, come si può osservare ad esempio nella figura \ref{fig:imagenet_c_drift_image_glass}.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/severity_curves/imagenet_c_severity_drift_blur.png}
+	\caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione blur, al variare della severità.}
+	\label{fig:imagenet_c_drift_severity_blur}
+\end{figure}
+% weather
 \begin{table}[H]
 	\centering
 	\label{tab:imagenet_c_drift_metrics_weather}
@@ -124,6 +142,13 @@ snow & sharpness & \driftcell{0.461836} & \driftcell{1.037702} & \driftcell{0.54
 \end{tabular}
 \caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione weather.}
 \end{table}
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/severity_curves/imagenet_c_severity_drift_weather.png}
+	\caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione weather, al variare della severità.}
+	\label{fig:imagenet_c_drift_severity_weather}
+\end{figure}
+% digital
 \begin{table}[H]
 	\centering
 	\label{tab:imagenet_c_drift_metrics_digital}
@@ -159,93 +184,245 @@ pixelate & sharpness & \driftcell{0.318243} & \driftcell{0.342908} & \driftcell{
 \end{tabular}
 \caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione digital.}
 \end{table}
-\begin{figure}
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/severity_curves/imagenet_c_severity_drift_digital.png}
+	\caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione digital, al variare della severità.}
+	\label{fig:imagenet_c_drift_severity_digital}
+\end{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/gaussian_noise.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con rumore gaussiano.}
 	\label{fig:imagenet_c_drift_image_gaussian}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/shot_noise.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con rumore di shot.}
 	\label{fig:imagenet_c_drift_image_shot}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/impulse_noise.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con rumore impulsivo.}
 	\label{fig:imagenet_c_drift_image_impulse}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/defocus_blur.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con sfocatura da defocus.}
 	\label{fig:imagenet_c_drift_image_defocus}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/motion_blur.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con sfocatura da movimento.}
 	\label{fig:imagenet_c_drift_image_motion}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/zoom_blur.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con sfocatura da zoom.}
 	\label{fig:imagenet_c_drift_image_zoom}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/glass_blur.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con corruzione da vetro satinato.}
 	\label{fig:imagenet_c_drift_image_glass}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/frost.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con corruzione da brina.}
 	\label{fig:imagenet_c_drift_image_frost}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/fog.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con corruzione da nebbia.}
 	\label{fig:imagenet_c_drift_image_fog}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/snow.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con corruzione da neve.}
 	\label{fig:imagenet_c_drift_image_snow}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/brightness.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con corruzione da luminosità.}
 	\label{fig:imagenet_c_drift_image_brightness}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/contrast.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con corruzione da contrasto.}
 	\label{fig:imagenet_c_drift_image_contrast}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/pixelate.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con corruzione da pixelizzazione.}
 	\label{fig:imagenet_c_drift_image_pixelate}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/jpeg_compression.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con corruzione da compressione JPEG.}
 	\label{fig:imagenet_c_drift_image_jpeg}
 \end{figure}
-\begin{figure}
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/distributions_by_corruption/elastic_transform.png}
 	\caption{Distribuzione delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-1k e ImageNet-C con corruzione da trasformazione elastica.}
 	\label{fig:imagenet_c_drift_image_elastic}
 \end{figure}
+\section{Analisi delle metriche di drift sulle feature del modello}
+In questa sezione vengono analizzate le metriche di drift calcolate sulle feature del modello ResNet-50, estratte dal layer \texttt{avgpool}. Per poter fare l'analisi di MMD delle feature, è stato necessario effettuare un campionamento a 10.000 esempi, in quanto utilizzare l'intero dataset avrebbe richiesto una quantità di memoria della GPU a noi non disponibile.
+Il campionamento è casuale, mantenendo un numero equo di esempi per ogni classe.
+\subsection{ImageNet-1k vs ImageNet-R}
+\begin{table}[H]
+  \centering
+  \begin{tabular}{llll}
+    \toprule
+    dataset & is\_drift & p\_val & distance \\
+    \midrule
+    ImageNetR & True & 0.0000 & 0.0805 \\ 
+    \bottomrule
+  \end{tabular}
+	\caption{Risultati del test di MMD tra le feature estratte dal layer \texttt{avgpool} del modello ResNet-50 per ImageNet-1k e ImageNet-R.}
+	\label{tab:mmd_drift_report}
+
+\end{table}
+
+\subsection{ImageNet-1k vs ImageNet-C}
+\begin{table}[H]
+  \centering
+  \begin{tabular}{lllll}
+    \toprule
+    corruption & severity & is\_drift & p\_val & distance \\
+    \midrule
+    defocus\_blur & 1 & True & 0.0000 & 0.0002 \\ 
+    defocus\_blur & 2 & True & 0.0000 & 0.0003 \\ 
+    defocus\_blur & 3 & True & 0.0000 & 0.0005 \\ 
+    defocus\_blur & 4 & True & 0.0000 & 0.0009 \\ 
+    defocus\_blur & 5 & True & 0.0000 & 0.0022 \\ 
+    glass\_blur & 1 & True & 0.0000 & 0.0002 \\ 
+    glass\_blur & 2 & True & 0.0000 & 0.0031 \\ 
+    glass\_blur & 3 & True & 0.0000 & 0.0176 \\ 
+    glass\_blur & 4 & True & 0.0000 & 0.0321 \\ 
+    glass\_blur & 5 & True & 0.0000 & 0.0238 \\ 
+    motion\_blur & 1 & False & 0.2000 & 0.0000 \\ 
+    motion\_blur & 2 & False & 0.1500 & 0.0001 \\ 
+    motion\_blur & 3 & True & 0.0000 & 0.0013 \\ 
+    motion\_blur & 4 & True & 0.0000 & 0.0099 \\ 
+    motion\_blur & 5 & True & 0.0000 & 0.0229 \\ 
+    zoom\_blur & 1 & True & 0.0000 & 0.0006 \\ 
+    zoom\_blur & 2 & True & 0.0000 & 0.0021 \\ 
+    zoom\_blur & 3 & True & 0.0000 & 0.0017 \\ 
+    zoom\_blur & 4 & True & 0.0000 & 0.0027 \\ 
+    zoom\_blur & 5 & True & 0.0000 & 0.0013 \\ 
+    \bottomrule
+  \end{tabular}
+\caption{Risultati del test di MMD tra le feature estratte dal layer \texttt{avgpool} del modello ResNet-50 per ImageNet-1k e ImageNet-C, corruzione di tipo blur.}
+\label{tab:mmd_drift_report_imagenet_c_blur}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{lllll}
+    \toprule
+    corruption & severity & is\_drift & p\_val & distance \\
+    \midrule
+    brightness & 1 & False & 0.3500 & 0.0000 \\ 
+    brightness & 2 & False & 0.1000 & 0.0001 \\ 
+    brightness & 3 & False & 0.1000 & 0.0000 \\ 
+    brightness & 4 & False & 0.2500 & 0.0001 \\ 
+    brightness & 5 & True & 0.0000 & 0.0003 \\ 
+    contrast & 1 & False & 0.2500 & 0.0000 \\ 
+    contrast & 2 & False & 0.1500 & 0.0001 \\ 
+    contrast & 3 & False & 0.1500 & 0.0001 \\ 
+    contrast & 4 & True & 0.0000 & 0.0005 \\ 
+    contrast & 5 & True & 0.0000 & 0.0029 \\ 
+    elastic\_transform & 1 & False & 0.2500 & 0.0001 \\ 
+    elastic\_transform & 2 & True & 0.0000 & 0.0011 \\ 
+    elastic\_transform & 3 & True & 0.0000 & 0.0017 \\ 
+    elastic\_transform & 4 & True & 0.0000 & 0.0083 \\ 
+    elastic\_transform & 5 & True & 0.0000 & 0.0740 \\ 
+    jpeg\_compression & 1 & False & 0.0500 & 0.0001 \\ 
+    jpeg\_compression & 2 & False & 0.1500 & 0.0001 \\ 
+    jpeg\_compression & 3 & False & 0.1000 & 0.0002 \\ 
+    jpeg\_compression & 4 & False & 0.0500 & 0.0002 \\ 
+    jpeg\_compression & 5 & False & 0.0500 & 0.0002 \\ 
+    pixelate & 1 & False & 0.2000 & 0.0001 \\ 
+    pixelate & 2 & True & 0.0000 & 0.0002 \\ 
+    pixelate & 3 & True & 0.0000 & 0.0005 \\ 
+    pixelate & 4 & True & 0.0000 & 0.0020 \\ 
+    pixelate & 5 & True & 0.0000 & 0.0126 \\ 
+    \bottomrule
+  \end{tabular}
+\caption{Risultati del test di MMD tra le feature estratte dal layer \texttt{avgpool} del modello ResNet-50 per ImageNet-1k e ImageNet-C, corruzione di tipo digital.}
+\label{tab:mmd_drift_report_imagenet_c_digital}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{lllll}
+    \toprule
+    corruption & severity & is\_drift & p\_val & distance \\
+    \midrule
+    gaussian\_noise & 1 & False & 0.5000 & 0.0000 \\ 
+    gaussian\_noise & 2 & True & 0.0000 & 0.0005 \\ 
+    gaussian\_noise & 3 & True & 0.0000 & 0.0025 \\ 
+    gaussian\_noise & 4 & True & 0.0000 & 0.0110 \\ 
+    gaussian\_noise & 5 & True & 0.0000 & 0.0682 \\ 
+    impulse\_noise & 1 & True & 0.0000 & 0.0004 \\ 
+    impulse\_noise & 2 & True & 0.0000 & 0.0014 \\ 
+    impulse\_noise & 3 & True & 0.0000 & 0.0040 \\ 
+    impulse\_noise & 4 & True & 0.0000 & 0.0215 \\ 
+    impulse\_noise & 5 & True & 0.0000 & 0.0840 \\ 
+    shot\_noise & 1 & False & 0.2000 & 0.0000 \\ 
+    shot\_noise & 2 & True & 0.0000 & 0.0005 \\ 
+    shot\_noise & 3 & True & 0.0000 & 0.0028 \\ 
+    shot\_noise & 4 & True & 0.0000 & 0.0155 \\ 
+    shot\_noise & 5 & True & 0.0000 & 0.0433 \\ 
+    \bottomrule
+  \end{tabular}
+\caption{Risultati del test di MMD tra le feature estratte dal layer \texttt{avgpool} del modello ResNet-50 per ImageNet-1k e ImageNet-C, corruzione di tipo noise.}
+\label{tab:mmd_drift_report_imagenet_c_noise}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \begin{tabular}{lllll}
+    \toprule
+    corruption & severity & is\_drift & p\_val & distance \\
+    \midrule
+    fog & 1 & False & 0.3500 & 0.0000 \\ 
+    fog & 2 & False & 0.1500 & 0.0001 \\ 
+    fog & 3 & False & 0.2500 & 0.0001 \\ 
+    fog & 4 & False & 0.1000 & 0.0002 \\ 
+    fog & 5 & True & 0.0000 & 0.0021 \\ 
+    frost & 1 & False & 0.1500 & 0.0000 \\ 
+    frost & 2 & True & 0.0000 & 0.0004 \\ 
+    frost & 3 & True & 0.0000 & 0.0016 \\ 
+    frost & 4 & True & 0.0000 & 0.0020 \\ 
+    frost & 5 & True & 0.0000 & 0.0043 \\ 
+    snow & 1 & True & 0.0000 & 0.0003 \\ 
+    snow & 2 & True & 0.0000 & 0.0010 \\ 
+    snow & 3 & True & 0.0000 & 0.0032 \\ 
+    snow & 4 & True & 0.0000 & 0.0050 \\ 
+    snow & 5 & True & 0.0000 & 0.0133 \\ 
+    \bottomrule
+  \end{tabular}
+\caption{Risultati del test di MMD tra le feature estratte dal layer \texttt{avgpool} del modello ResNet-50 per ImageNet-1k e ImageNet-C, corruzione di tipo weather.}
+\label{tab:mmd_drift_report_imagenet_c_weather}
+\end{table}
+\section{Analisi delle performance del modello}
+In questa sezione vengono analizzate le performance del modello ResNet-50 su ImageNet-R e ImageNet-C. Per ImageNet-R, confronteremo le metriche ottenute dalla classificazione delle immagini del dataset con le metriche ottenute dalla classificazione delle immagini di ImageNet-1k. Per ImageNet-C, invece, analizzeremo l'accuracy del modello al variare della severità della corruzione, calcolando la degradazione delle performance rispetto alla severity, calcolando la robustezza del modello e misurando quanto linearmente la severità della corruzione influisca sulla degradazione delle performance del modello.
+\subsection{ImageNet-1k vs ImageNet-R}
+
+\subsection{ImageNet-1k vs ImageNet-C}
