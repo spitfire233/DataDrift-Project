@@ -377,8 +377,8 @@ def plot_corruption_category(results_path="../results/ImageNetC", category=None,
     categories_map = {
         'noise': ['gaussian_noise', 'impulse_noise', 'shot_noise'],
         'blur': ['defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur'],
-        'digital': ['brightness', 'contrast', 'elastic_transform', 'jpeg_compression', 'pixelate'],
-        'weather': ['fog', 'frost', 'snow']
+        'digital': ['contrast', 'elastic_transform', 'jpeg_compression', 'pixelate'],
+        'weather': ['brightness','fog', 'frost', 'snow']
     }
     
     if category is None:
@@ -613,8 +613,8 @@ def plot_degradation(results_path="../results/ImageNetC", corruption_type=None,
     categories_map = {
         'noise': ['gaussian_noise', 'impulse_noise', 'shot_noise'],
         'blur': ['defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur'],
-        'digital': ['brightness', 'contrast', 'elastic_transform', 'jpeg_compression', 'pixelate'],
-        'weather': ['fog', 'frost', 'snow']
+        'digital': [ 'contrast', 'elastic_transform', 'jpeg_compression', 'pixelate'],
+        'weather': ['brightness', 'fog', 'frost', 'snow']
     }
 
     if corruption_type is not None:
@@ -716,8 +716,8 @@ def degradation_summary(results_path="../results/ImageNetC", metric_name='accura
     categories_map = {
         'noise': ['gaussian_noise', 'impulse_noise', 'shot_noise'],
         'blur': ['defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur'],
-        'digital': ['brightness', 'contrast', 'elastic_transform', 'jpeg_compression', 'pixelate'],
-        'weather': ['fog', 'frost', 'snow']
+        'digital': ['contrast', 'elastic_transform', 'jpeg_compression', 'pixelate'],
+        'weather': ['brightness','fog', 'frost', 'snow']
     }
     
     # Filter corruptions based on parameters
