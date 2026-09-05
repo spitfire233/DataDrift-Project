@@ -55,8 +55,8 @@ shot\_noise & sharpness & \driftcell{1.504179} & \driftcell{2.558167} & \driftce
 \end{tabular}
 \caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione noise.}
 \end{table}
-Possiamo notare dai dati nella tabella \ref{tab:imagenet_c_drift_metrics_noise} che per tutti i tipi di rumore le feature rms\_contrast e sharpness driftano a tutti i livelli di severità, mentre le altre feature driftano solo a severità più alte. In particolare, la feature sharpness presenta un drift molto più marcato rispetto alle altre feature, con valori di distanza di Wesserstein che superano 4 per la severità 5. Questo, può essere casuato dal fatto che il rumore può coprire i "bordi" degli oggetti. Possiamo notare inoltre che mean\_green e mean\_red per shot\_noise non driftano, mentre mean\_blue drifta solo al livello di severity 5.
-Osservando la figura \ref{fig:imagenet_c_drift_severity_noise} possiamo notare che per noise la distanza nei canali colore non aumenta sempre all'aumentare della severità, questa diminuisce da severity 1 a severity 3. La distanza nelle altre feature aumenta invece sempre per tutti i rumori all'aumentare della severità.
+Possiamo notare dai dati nella tabella \ref{tab:imagenet_c_drift_metrics_noise} che per tutti i tipi di rumore le feature rms\_contrast e sharpness driftano a tutti i livelli di severità, mentre le altre feature driftano solo a severità più alte. In particolare, la feature sharpness presenta un drift molto più marcato rispetto alle altre feature, con valori di distanza di Wesserstein che superano 4 per la severità 5. Questo, può essere casuato dal fatto che il rumore può coprire i bordi degli oggetti. Possiamo notare inoltre che mean\_green e mean\_red per shot\_noise non driftano, mentre mean\_blue drifta solo al livello di severity 5.
+Osservando la figura \ref{fig:imagenet_c_drift_severity_noise} possiamo notare che per noise la distanza nei canali colore non aumenta sempre all'aumentare della severità, questa diminuisce da severity 1 a severity 3. La distanza nelle altre feature aumenta invece sempre per tutti i rumori all'aumentare della severità. 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/severity_curves/imagenet_c_severity_drift_noise.png}
@@ -99,7 +99,7 @@ zoom\_blur & sharpness & \driftcell{1.165725} & \driftcell{1.206743} & \driftcel
 \end{tabular}
 \caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione blur.}
 \end{table}
-Possiamo notare dai dati in tabella \ref{tab:imagenet_c_drift_metrics_blur} che per tutti i tipi di blur la brightness e i canali colore non driftano, questo accade perché i blur non modificano la luminosità o i colori delle immagini. Le feature rms\_contrast e sharpness driftano a tutti i livelli di severità. In particolare, la feature sharpness presenta un drift molto più marcato rispetto alle altre feature, con valori di distanza di Wesserstein che superano 1.2 per la severità 5. Questo, può essere causato dal fatto che il blur può coprire i "bordi" degli oggetti, diminuendo la nitidezza e il contrasto, come si può osservare ad esempio nella figura \ref{fig:imagenet_c_drift_image_glass}.
+Possiamo notare dai dati in tabella \ref{tab:imagenet_c_drift_metrics_blur} che per tutti i tipi di blur la brightness e i canali colore non driftano, questo accade perché i blur non modificano la luminosità o i colori delle immagini. Le feature rms\_contrast e sharpness driftano a tutti i livelli di severità. In particolare, la feature sharpness presenta un drift molto più marcato rispetto alle altre feature, con valori di distanza di Wesserstein che superano 1.2 per la severità 5. Questo, può essere causato dal fatto che il blur può coprire i bordi degli oggetti, diminuendo la nitidezza e il contrasto, come si può osservare ad esempio nella figura \ref{fig:imagenet_c_drift_image_glass}. Come si può notare inoltre dalla figura \ref{fig:imagenet_c_drift_severity_blur}, le feature che non presentano drift hanno un andamento pressoché costante per ogni livello di severità, tranne per zoom\_blur, il quale andamento è quasi lineare all'aumentare del livello di severità. Inoltre, i valori della distanza di Wesserstein per sharpness sono molto vicini fra loro per ogni livello di severità e tipo di blur.
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/severity_curves/imagenet_c_severity_drift_blur.png}
@@ -142,6 +142,17 @@ snow & sharpness & \driftcell{0.461836} & \driftcell{1.037702} & \driftcell{0.54
 \end{tabular}
 \caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione weather.}
 \end{table}
+Come si può notare dalla tabella \ref{tab:imagenet_c_drift_metrics_weather}, per il tipo di sporcatura brightness, i valori medi dei canali colore non presentano drift, poiché modificare la luminosità non comporta una modifica nel colore dell'immagine, mentre le feature brightness, rms\_contrast e sharpness invece presentano un drift rispetto alla distribuzione di confronto. Infatti, come si può notare dall'immagine \ref{fig:imagenet_c_drift_image_brightness} aumentando la luminosità dell'immagine, oltre ovviamente ad introdurre un drift nella distribuzione della feature brightness, la feature
+contrast presenta una diminuzione dei suoi valori mentre la feature sharpness presenta una minore concentrazione nelle code della distribuzione, mentre aumenta la frequenza dei valori pù frequenti, portando le distribuzioni a schiacciarsi. Questo può essere dal fatto che aumentare la luminosità di un'immagine la porta ad essere più tendente al bianco, quindi diminuendo
+il contrasto e mediamente diminuendo la sua nitidezza. Possiamo inoltre fare le seguenti affermazioni riguardanti la figura \ref{fig:imagenet_c_drift_severity_weather}:
+\begin{itemize}
+  \item La distanza di Wesserstein per le immagini sporcate con corruzione snow ha un picco con severity 2 per la feature sharpness. Infatti, come si può notare dall'immagine \ref{fig:imagenet_c_drift_image_snow}, 
+  i valori di sharpness per severity 2 sono molto più alti rispetto alla distribuzione originale
+  e alle distribuzioni delle altre severity. Questo può essere dato dal fatto che aumentando il numero di oggetti nell'immagine senza però andandola a coprire del tutto, i valori della nitidezza aumentano poiché anche gli elementi introdotti dalla sporcatura hanno bordi ben definiti. 
+  \item La distanza di Wesserstein per le immagini sporcate con corruzione fog diminuisce dalla severity 2 in poi per la feature rms\_contrast. Come si può infatti notare dalla figura \ref{fig:imagenet_c_drift_image_fog}, la distribuzione di rms\_contrast per le
+  immagini sporcate presentano una minore variabilità e si concentrano su minori valori di contrasto. Questo può essere dato dal fatto che applicando questo tipo di sporcatura, le immagini tendono verso una colorazione grigia uniforme, come si può anche notare dalle distribuzioni dei canali colore.
+\end{itemize}
+
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=\textwidth]{images/metrics/ImageNet-C/severity_curves/imagenet_c_severity_drift_weather.png}
@@ -183,6 +194,10 @@ pixelate & sharpness & \driftcell{0.318243} & \driftcell{0.342908} & \driftcell{
 \bottomrule
 \end{tabular}
 \caption{Distanza di Wesserstein tra le distribuzioni delle misure di luminanza, contrasto, nitidezza e media dei canali colore per ImageNet-C nel gruppo di corruzione digital.}
+Come si può notare dalla tabella \ref{tab:imagenet_c_drift_metrics_digital}, le uniche feature che presentano un drift secondo la distanza di Wesserstein sono il contrasto e la nitidezza. In particolare possiamo compiere le seguenti osservazioni:
+\begin{itemize}
+  \item Nonostante venga modificato direttamente il contrasto dell'immagini nel tipo di sporcatura contrast, la media dei canali colori non presenta drift in nessun livello di severità. Infatti, come si può osservare nella figura \ref{fig:imagenet_c_drift_image_contrast}, nonostante il contrasto venga diminuito rendendo l'immagine più uniforme a livello di colore, il valore medio dei canali colore rimane sostanzialmente invariato. 
+\end{itemize}
 \end{table}
 \begin{figure}[H]
 	\centering
@@ -281,9 +296,9 @@ pixelate & sharpness & \driftcell{0.318243} & \driftcell{0.342908} & \driftcell{
 	\label{fig:imagenet_c_drift_image_elastic}
 \end{figure}
 \section{Analisi delle metriche di drift sulle feature del modello}
-In questa sezione vengono analizzate le metriche di drift calcolate sulle feature del modello ResNet-50, estratte dal layer \texttt{avgpool}. Per poter fare l'analisi di MMD delle feature, è stato necessario effettuare un campionamento a 10.000 esempi, in quanto utilizzare l'intero dataset avrebbe richiesto una quantità di memoria della GPU a noi non disponibile.
-Il campionamento è casuale, mantenendo un numero equo di esempi per ogni classe.
+In questa sezione vengono analizzate le metriche di drift calcolate sulle feature del modello ResNet-50, estratte dal layer \texttt{avgpool}. Come già accennato nella sezione 4, la rilevazione delle feature viene effettuata tramite test MMD.I test sono stati effettuati con un valore di soglia uguale a $0.05$, quindi viene rilevato un drift quando il p-value $p < 0.05$
 \subsection{ImageNet-1k vs ImageNet-R}
+Il test MMD ImageNet-R è stato effettuato rispetto alle feature ottenute dalla classificazione di ImageNet-1k sottocampionato alle duecento classi in comune con ImageNet-R.
 \begin{table}[H]
   \centering
   \begin{tabular}{llll}
@@ -295,10 +310,14 @@ Il campionamento è casuale, mantenendo un numero equo di esempi per ogni classe
   \end{tabular}
 	\caption{Risultati del test di MMD tra le feature estratte dal layer \texttt{avgpool} del modello ResNet-50 per ImageNet-1k e ImageNet-R.}
 	\label{tab:mmd_drift_report}
-
 \end{table}
-
+Come si può notare dal risultato riportato in tabella \ref{tab:mmd_drift_report}, il p-value del test è zero, quindi al di sotto della soglia di rilevazione. La rilevazione del drift è quindi coerente con il drift rilevato per le feature visive, come si può
+vedere in figura \ref{fig:imagenet_r_drift_image}.
 \subsection{ImageNet-1k vs ImageNet-C}
+Per poter fare l'analisi di MMD delle feature, è stato necessario effettuare un campionamento a 10.000 esempi, in quanto utilizzare l'intero dataset avrebbe richiesto una quantità di memoria della GPU a noi non disponibile. Il campionamento è casuale, mantenendo un numero equo di esempi per ogni classe. 
+
+Analizziamo ora le metriche di drift rilevate nelle feature utilizzate dal modello durante la classificazione e confrontiamo il risultato con il drift rilevato nelle feature visive.
+\subsubsection{Blur}
 \begin{table}[H]
   \centering
   \begin{tabular}{lllll}
@@ -330,6 +349,14 @@ Il campionamento è casuale, mantenendo un numero equo di esempi per ogni classe
 \caption{Risultati del test di MMD tra le feature estratte dal layer \texttt{avgpool} del modello ResNet-50 per ImageNet-1k e ImageNet-C, corruzione di tipo blur.}
 \label{tab:mmd_drift_report_imagenet_c_blur}
 \end{table}
+Per quanto riguarda la classe di sporcature blur, abbiamo ottenuto i risultati presentati in tabella \ref{tab:mmd_drift_report_imagenet_c_blur}. Possiamo effettuare le seguenti osservazioni:
+\begin{itemize}
+  \item \textbf{defocus\_blur}: Il drift viene rilevato ad ogni livello di severity; il ché è coerente con il drift rilevato nelle feature visive, come presentato in figura \ref{fig:imagenet_c_drift_image_defocus}. Infatti, in questo tipo di sporcatura sharpness e rms\_contrast presentano un drift a tutti i livelli di severity.
+  \item \textbf{glass\_blur}: Come si può notare in figura \ref{fig:imagenet_c_drift_image_glass}, le feature sharpness e rms\_contrast presentano un drift a tutti i livelli di severity. Valgono quindi le stesse considerazioni effettuate per defocus\_blur.
+  \item \textbf{motion\_blur}: Nonostante venga rilevato, come nelle due sporcature precedenti e riportato in figura \ref{fig:imagenet_c_drift_image_motion}, un drift nelle feature sharpness e rms\_contrast in tutti di livelli di severità, con distanze di Wesserstein simili a quelle rilevate per defocus\_blur e glass\_blur, le feature estratte dal modello per i primi due livelli non presentano drift rispetto alle feature estratte da ImageNet-1k. Infatti, le feature che il modello estrae e utilizza per la classificazione sono fondamentalmente diverse rispetto a quelle estraibili direttamente dalle immagini, quindi è possibile che, nonostante la sporcatura, le feature estratte per i primi due livelli di severità non presentino drift rispetto a quelle estratte per imagenet-1k.
+  \item \textbf{zoom\_blur}: Valgono le stesse considerazioni effettuate per defocus\_blur e glass\_blur. Ciò si può notare osservando la figura \ref{fig:imagenet_c_drift_image_zoom}.
+\end{itemize}
+\subsubsection{Digital}
 
 \begin{table}[H]
   \centering
@@ -337,11 +364,6 @@ Il campionamento è casuale, mantenendo un numero equo di esempi per ogni classe
     \toprule
     corruption & severity & is\_drift & p\_val & distance \\
     \midrule
-    brightness & 1 & False & 0.3500 & 0.0000 \\ 
-    brightness & 2 & False & 0.1000 & 0.0001 \\ 
-    brightness & 3 & False & 0.1000 & 0.0000 \\ 
-    brightness & 4 & False & 0.2500 & 0.0001 \\ 
-    brightness & 5 & True & 0.0000 & 0.0003 \\ 
     contrast & 1 & False & 0.2500 & 0.0000 \\ 
     contrast & 2 & False & 0.1500 & 0.0001 \\ 
     contrast & 3 & False & 0.1500 & 0.0001 \\ 
@@ -367,7 +389,14 @@ Il campionamento è casuale, mantenendo un numero equo di esempi per ogni classe
 \caption{Risultati del test di MMD tra le feature estratte dal layer \texttt{avgpool} del modello ResNet-50 per ImageNet-1k e ImageNet-C, corruzione di tipo digital.}
 \label{tab:mmd_drift_report_imagenet_c_digital}
 \end{table}
-
+Per quanto riguarda la classe di sporcature digital, abbiamo ottenuto i risultati presentati in tabella \ref{tab:mmd_drift_report_imagenet_c_digital}. Possiamo effettuare le seguenti osservazioni:
+\begin{itemize}
+  \item \textbf{contrast}: A differenza di quanto rilevato per le feature visive rms\_contrast e sharpness, come si può vedere in figura \ref{fig:imagenet_c_drift_image_contrast}, il test MMD non rileva una presenza di drift nelle feature ai primi tre livello di severità. Valgono quindi le stesse considerazioni effettuate per motion\_blur.
+  \item \textbf{eleastic\_transform}: Come rilevato per contrast, vi è una discrepanza fra il drift rilevato nelle feature visive, riportato in figura \ref{fig:imagenet_c_drift_image_elastic}, e il drift rilevato nelle feature estratte dal modello. In particolare, esse non risultano soggette a drift per il primo livello di severity.
+  \item \textbf{jpeg\_compression}: Per questo tipo di sporcatura, le feature estratte dal modello non risultano soggette a drift per nessun livello di severity, nonostante le feature visive rms\_contrast e sharpness risultino soggette a drift, seppur con distanza di Wesserstein più bassa rispetto ad altri tipi di sporcatura. Ciò è riportato in figura \ref{fig:imagenet_c_drift_image_jpeg}. Questo è dato probabilmente dal fatto che le feature estratte per questo tipo di sporcature presentino un drift minimo o nullo rispetto alle feature di riferimento.
+  \item \textbf{pixelate}: A differenza di quanto rilevato per le feature visive rms\_contrast e sharpness, riportato in figura \ref{fig:imagenet_c_drift_image_pixelate}, le feature estratte dal modello presentano drift solo nel primo livello di severity. Valgono quindi le considerazioni fatte in precedenza.
+\end{itemize}
+\subsubsection{Noise}
 \begin{table}[H]
   \centering
   \begin{tabular}{lllll}
@@ -394,13 +423,25 @@ Il campionamento è casuale, mantenendo un numero equo di esempi per ogni classe
 \caption{Risultati del test di MMD tra le feature estratte dal layer \texttt{avgpool} del modello ResNet-50 per ImageNet-1k e ImageNet-C, corruzione di tipo noise.}
 \label{tab:mmd_drift_report_imagenet_c_noise}
 \end{table}
-
+Per quanto riguarda la classe di sporcature noise, abbiamo ottenuto i risultati presentati in tabella \ref{tab:mmd_drift_report_imagenet_c_noise}. Possiamo effettuare le seguenti osservazioni:
+\begin{itemize}
+  \item \textbf{gaussian\_noise}: Per questo tipo di sporcatura, le feature visive rms\_contrast, sharpness presentano sempre un drift, le medie dei canali colore presentano un drift dal quarto livello di severità in poi e brightness presenta un drift dal terzo livello di severità in poi. Questi risultati sono riportati in figura \ref{fig:imagenet_c_drift_image_gaussian}. A differenza di quanto rilevato nelle feature visive, le feature estratte dal modello presentano un drift solamente dal secondo livello di severità. Come quindi già detto in precedenza, le feature estratte dal modello per il primo livello di severità sono uguali a quelle estratte per ImageNet-1k, infatti la distanza MMD rilevata è $0$.
+  \item \textbf{impulse\_noise}: Per questo tipo di sporcatura, le feature visive rms\_contrast e sharpness presentano sempre un drift, le medie dei canali colore presentano un drift dal quarto livello di severità e brightness dal secondo livello di severità. Ciò è riportato nella figura \ref{fig:imagenet_c_drift_image_impulse}. Come rilevato in precedenza, vi è quindi una discrepanza tra il drift rilevato nelle feature visive e quello rilevato nelle feature estratte dal modello: infatti, quest'ultime presentano sempre un drift rispetto alle feature di riferimento.
+  \item \textbf{shot\_noise}: Per questo tipo di sporcatura, le feature visive rms\_contrast e sharpness presentano sempre un drift, brightness presenta un drift dal terzo livello di severità in poi. A differenza degli altri tipi di sporcatura in questa classe, l'unica media del canale colore che presenta un drift è quella del canale blu all'ultimo livello di severity.
+  Anche in questo caso, il drift rilevato nelle feature estratte dal modello diverge rispetto a quanto rilevato nelle feature visive: infatti, viene rilevato un drift solamente dal secondo livello di severità. 
+\end{itemize}
+\subsubsection{Weather}
 \begin{table}[H]
   \centering
   \begin{tabular}{lllll}
     \toprule
     corruption & severity & is\_drift & p\_val & distance \\
     \midrule
+    brightness & 1 & False & 0.3500 & 0.0000 \\ 
+    brightness & 2 & False & 0.1000 & 0.0001 \\ 
+    brightness & 3 & False & 0.1000 & 0.0000 \\ 
+    brightness & 4 & False & 0.2500 & 0.0001 \\ 
+    brightness & 5 & True & 0.0000 & 0.0003 \\ 
     fog & 1 & False & 0.3500 & 0.0000 \\ 
     fog & 2 & False & 0.1500 & 0.0001 \\ 
     fog & 3 & False & 0.2500 & 0.0001 \\ 
@@ -421,6 +462,15 @@ Il campionamento è casuale, mantenendo un numero equo di esempi per ogni classe
 \caption{Risultati del test di MMD tra le feature estratte dal layer \texttt{avgpool} del modello ResNet-50 per ImageNet-1k e ImageNet-C, corruzione di tipo weather.}
 \label{tab:mmd_drift_report_imagenet_c_weather}
 \end{table}
+Per quanto riguarda la classe di sporcature weather, abbiamo ottenuto i risultati presentati in tabella \ref{tab:mmd_drift_report_imagenet_c_weather}. Possiamo effettuare le seguenti osservazioni:
+\begin{itemize}
+  \item \textbf{brightness}: Per questo tipo di sporcatura, si presenta un drift in tutte le feature visive e a tutti i livelli di severity tranne per le medie dei canali colore, le quali non presentano alcun tipo di drift. Ciò è riportato in figura \ref{fig:imagenet_c_drift_image_brightness}. Come si può osservare dalla tabella \ref{tab:mmd_drift_report_imagenet_c_weather}, le feature estratte dal modello presentano un drift rispetto a quelle estratte da ImageNet-1k solamente al quinto livello di severity. Valgono quindi le considerazioni effettuate in precedenza sulle feature estratte dal modello.
+  \item \textbf{fog}: Per questo tipo di sporcatura, tutte le feature visive presentano un drift a tutti i livelli di severità. La figura \ref{fig:imagenet_c_drift_image_fog} presenta il drift misurato su queste feature. Ciò non si riflette nelle feature estratte dal modello, nelle quali viene rilevato un drift dal test MMD solamente al quinti livello di severità.
+  \item \textbf{frost}: Per questo tipo di sporcatura, tutte le feature visive presentano un drift a tutti i livelli di severità. La figura \ref{fig:imagenet_c_drift_image_frost} presenta il drift misurato su queste feature. Ciò si riflette solamente parzialmente sulle feature estratte dal modello: infatti, viene rilevato un drift in esse solamente dal secondo livello di severità.
+  \item \textbf{snow}: Per questo tipo di sporcatura, tutte le feature visive presentano un drift a tutti i livelli di severità tranne rms\_contrast, la quale presenta un drift solamente a partire dal secondo livello di severità. La figura \ref{fig:imagenet_c_drift_image_snow} presenta il drift misurato su queste feature. Ciò si riflette quindi solamente parzialmente sulle feature estratte dal modello: infatti, viene rilevato un drift in esse a tutti i livelli di severità.
+\end{itemize}
+\subsubsection{Analisi del confronto tra tipi di feature}
+Confrontando i risultati ottenuti per la rilevazione del drift sulle feature visive e sulle feature estratte dal modello, si può evincere che non vi è una correlazione diretta tra la presenza di drift nelle due. Ciò può essere dato dal fatto che la rete convolutiva computa e utilizza feature map le quali non sono direttamente confrontabili con le feature visive direttamente estratte dall'immagine, nonostante esse possano venir utilizzate per calcolare le feature map. Il drift delle feature del modello non sembra quindi essere influenzato dal drift nelle feature visive.
 \section{Analisi delle performance del modello}
 In questa sezione vengono analizzate le performance del modello ResNet-50 su ImageNet-R e ImageNet-C. Per ImageNet-R, confronteremo le metriche ottenute dalla classificazione delle immagini del dataset con le metriche ottenute dalla classificazione delle immagini di ImageNet-1k. Per ImageNet-C, invece, analizzeremo l'accuracy del modello al variare della severità della corruzione, calcolando la degradazione delle performance rispetto alla severity, calcolando la robustezza del modello e misurando quanto linearmente la severità della corruzione influisca sulla degradazione delle performance del modello.
 \subsection{ImageNet-1k vs ImageNet-R}
