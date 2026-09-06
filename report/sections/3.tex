@@ -31,15 +31,34 @@ che verranno passate alla rete. In particolare per le immagini, essi sono i \tex
 quindi vedere un'immagine come una matrice di dimensioni $W \times H \times C$, con $W$ la larghezza dell'immagine, $H$ l'altezza dell'immagine
 e $C$ il numero di \textbf{canali colore} (per esempio, $C =3$ se l'immagine ha canali colore RGB).
 \subsubsection{Strati convolutivi}
-
-
-
-
-
+Come abbiamo già detto sopra, le reti neurali convolutive sono in grado di sfruttare la struttura spaziale dell'input. Questo avviene nei \textbf{layer convolutivi}, il cui scopo è quello di imparare delle \textbf{rappresentazioni delle feature dell'input} \cite{gu_recent_2018}, cioè una rappresentazione delle caratteristiche presenti all'interno dell'input. Nel contesto delle immagini, esse possono essere, ad esempio, bordi, angoli, texture e forme.
+L'apprendimento e l'estrazione di tali caratteristiche vengono effettuati avvalendosi di diversi \textbf{kernel convolutivi} (o filtri convolutivi), i quali vengono appresi dalla rete e utilizzati per effettuare una \textbf{convoluzione} sull'immagine. Più precisamente, il kernel viene fatto scorrere sull'input, considerando a ogni posizione una piccola regione locale di esso. Tale regione, rispetto al neurone che ne riceve le informazioni, viene definita \textbf{receptive field}. Viene quindi effettuato il prodotto scalare tra i valori presenti in questa regione e i pesi del kernel, ottenendo il valore di ingresso del neurone, il quale applicherà ad esso una funzione di attivazione non lineare per ottenere il suo valore di output, cioè la sua \textbf{attivazione}. Ripetendo questa operazione nelle diverse posizioni spaziali dell'input si ottiene una \textbf{feature map}, nella quale ogni valore corrisponde all'attivazione di un neurone in corrispondenza di una specifica regione dell'input. Ogni layer convolutivo si avvale di più kernel, i quali produrranno una feature map diversa ciascuno. Questo meccanismo ha diversi vantaggi:
+\begin{itemize}
+    \item Lo stesso kernel viene \textbf{condiviso tra tutte le posizioni spaziali dell'input}: in questo modo, lo stesso insieme di pesi viene utilizzato per rilevare una determinata caratteristica indipendentemente dalla sua posizione nell'immagine. Ciò inoltre diminuisce la complessità del modello, facilitandone l'addestramento.
+    \item L'utilizzo di kernel differenti permette di ottenere diverse feature map, ciascuna delle quali può rappresentare una diversa caratteristica appresa dall'input
+\end{itemize}
+La figura \ref{fig:feature_maps} mostra un esempio di estrazione di feature maps in una CNN.
+\begin{figure}
+    \centering
+    \includegraphics[width = \textwidth]{images/feature maps.png}
+    \caption{Esempio di estrazione di feature map da un'immagine. Da \cite{lecun_deep_2015}}
+    \label{fig:feature_maps}
+\end{figure}
+Infine, il kernel viene spostato sull'immagine di una quantità chiamata \textbf{stride}, che rappresenta il numero di pixel di cui il kernel viene traslato a ogni operazione di convoluzione. Di conseguenza, aumentando lo stride diminuisce il numero di posizioni nelle quali il kernel viene applicato e, in generale, si ottiene una \textbf{feature map} di dimensioni spaziali inferiori. Se i kernel della rete sono troppo grandi rispetto alle dimensioni dell'input, si può inoltre introdurre dello \textbf{zero padding} ai suoi bordi.
 \subsubsection{Strati di pooling}
+Lo scopo degli strati di pooling è quello di \textbf{ridurre le dimensioni spaziali delle feature map ottenute dai layer convolutivi} e, di conseguenza, ridurre la complessità computazionale del modello \cite{oshea_introduction_2015}. Anche questi layer si avvalgono di kernel per operare su piccole regioni spaziali dell'input. Tuttavia, a differenza degli strati convolutivi, questi kernel non possiedono parametri apprendibili e applicano generalmente una delle seguenti operazioni:
+\begin{itemize}
+    \item \textbf{Max-pooling}: viene selezionato il valore massimo tra quelli contenuti nella regione considerata.
+    \item \textbf{Average-pooling}: viene calcolata la media dei valori contenuti nella regione considerata.
+\end{itemize}
+L'output di un layer di pooling sarà quindi una nuova \textbf{feature map} con dimensioni spaziali ridotte rispetto a quella in ingresso.  I layer di pooling sono generalmente posti tra due layer convolutivi e operano indipendentemente su ciascuna feature map. Combinando diversi layer convolutivi e di pooling, la rete può progressivamente estrarre caratteristiche sempre più complesse e di alto livello \cite{gu_recent_2018}.
 \subsubsection{Strati completamente connessi}
-\subsubsection{Altri tipi di strati}
+% TODO: ricontrollare
+Come in una rete neurale tradizionale, gli strati completamente connessi si occupano di \textbf{combinare le informazioni provenienti dallo strato precedente}, collegando ciascun neurone a tutti i neuroni dello strato precedente. In questo modo, le caratteristiche estratte dai layer convolutivi vengono integrate per ottenere una rappresentazione globale dell'input \cite{gu_recent_2018}, che può essere successivamente utilizzata per effettuare la classificazione.
+\subsubsection{Strato di ouput}
+L'ultimo strato di una rete neurale convolutiva è lo strato di output, il quale si occupa di restituire il risultato della classificazione. Spesso, questo strato è rappresentato dall'operatore \textbf{softmax} oppure da una \textbf{SVM} \cite{gu_recent_2018}.
 \section{Reti residuali}
+
 \subsection{ResNet50}
 
 
