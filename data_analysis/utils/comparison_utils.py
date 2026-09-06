@@ -652,6 +652,85 @@ def calculate_degradation(results_path="../results/ImageNetC", metric_name='accu
     return df
 
 
+def calculate_robustness(results_path="../results/ImageNetC", metric_name='accuracy'):
+    """
+    Calculate robustness ratio: Acc_corrupted / Acc_clean
+    Higher values indicate better robustness.
+
+    Parameters:
+    -----------
+    results_path : str
+        Path to the results directory
+    metric_name : str
+        Name of the metric to calculate robustness for
+
+    Returns:
+    --------
+    pd.DataFrame
+        DataFrame with columns: corruption_type, severity, robustness
+    """
+    results_path = Path(results_path)
+
+    # Load baseline metrics
+    baseline_file = results_path / "baseline_metrics.json"
+    if not baseline_file.exists():
+        print("Baseline metrics file not found!")
+        return None
+
+    with open(baseline_file, 'r') as f:
+        baseline_metrics = json.load(f)
+        m = baseline_metrics.get(metric_name)
+        if isinstance(m, dict) and 'mean' in m:
+            baseline_value = _to_float(m.get('mean'))
+        else:
+            baseline_value = _to_float(m)
+
+    if baseline_value is None:
+        print(f"Metric '{metric_name}' not found in baseline!")
+        return None
+
+    data = []
+
+    # Scan all categories and files
+    for category_dir in sorted(results_path.iterdir()):
+        if not category_dir.is_dir():
+            continue
+
+        for metrics_file in sorted(category_dir.glob("*_metrics.json")):
+            filename = metrics_file.stem
+            if filename.endswith("_metrics"):
+                filename = filename[:-8]
+
+            if "_sev_" in filename:
+                parts = filename.split("_sev_")
+                if len(parts) == 2:
+                    corruption_type = parts[0]
+                    try:
+                        severity = int(parts[1])
+                        with open(metrics_file, 'r') as f:
+                            metrics = json.load(f)
+
+                        if metric_name in metrics:
+                            mv = metrics[metric_name]
+                            if isinstance(mv, dict) and 'mean' in mv:
+                                corrupted_value = float(mv.get('mean'))
+                            else:
+                                corrupted_value = float(mv)
+
+                            robustness = corrupted_value / baseline_value
+
+                            data.append({
+                                'corruption_type': corruption_type,
+                                'severity': severity,
+                                'robustness': robustness
+                            })
+                    except ValueError:
+                        pass
+
+    df = pd.DataFrame(data)
+    return df
+
+
 def plot_degradation(results_path="../results/ImageNetC", corruption_type=None,
                     category=None, metric_name='accuracy', save_path=None, save_dir=None):
     """
@@ -900,3 +979,161 @@ def degradation_summary(results_path="../results/ImageNetC", metric_name='accura
     df_summary = pd.DataFrame(summary_data).sort_values('AUC', ascending=False)
     
     return df_summary
+
+
+def plot_robustness(results_path="../results/ImageNetC", corruption_type=None,
+                    category=None, metric_name='accuracy', save_path=None, save_dir=None):
+    """
+    Plot robustness trend across severity levels.
+    Robustness = Acc_corrupted / Acc_clean (higher is better)
+
+    Parameters:
+    -----------
+    results_path : str
+        Path to the results directory
+    corruption_type : str
+        Type of corruption to plot (e.g., 'gaussian_noise')
+    category : str
+        Category to plot: 'noise', 'blur', 'digital', 'weather'
+    metric_name : str
+        Name of the metric to calculate robustness for
+    save_path : str
+        Path where the figure should be saved
+        If omitted, the figure is saved automatically in the default plots folder
+    save_dir : str
+        Optional backward-compatible alias; if provided and `save_path` is not set,
+        the figure is saved inside this directory
+    """
+    results_path = Path(results_path)
+
+    # Load baseline metrics
+    baseline_file = results_path / "baseline_metrics.json"
+    if not baseline_file.exists():
+        print("Baseline metrics file not found!")
+        return
+
+    with open(baseline_file, 'r') as f:
+        baseline_metrics = json.load(f)
+        m = baseline_metrics.get(metric_name)
+        if isinstance(m, dict) and 'mean' in m:
+            baseline_value = _to_float(m.get('mean'))
+        else:
+            baseline_value = _to_float(m)
+
+    if baseline_value is None:
+        print(f"Metric '{metric_name}' not found in baseline!")
+        return
+
+    # Define corruption categories
+    categories_map = {
+        'noise': ['gaussian_noise', 'impulse_noise', 'shot_noise'],
+        'blur': ['defocus_blur', 'glass_blur', 'motion_blur', 'zoom_blur'],
+        'digital': ['contrast', 'elastic_transform', 'jpeg_compression', 'pixelate'],
+        'weather': ['brightness', 'fog', 'frost', 'snow']
+    }
+
+    def calculate_robustness_data(corr_type):
+        """Helper function to load robustness data for a corruption type"""
+        data = []
+        for category_dir in sorted(results_path.iterdir()):
+            if not category_dir.is_dir():
+                continue
+
+            for metrics_file in sorted(category_dir.glob("*_metrics.json")):
+                filename = metrics_file.stem
+                if filename.endswith("_metrics"):
+                    filename = filename[:-8]
+
+                if "_sev_" in filename:
+                    parts = filename.split("_sev_")
+                    if len(parts) == 2 and parts[0] == corr_type:
+                        try:
+                            severity = int(parts[1])
+                            with open(metrics_file, 'r') as f:
+                                metrics = json.load(f)
+
+                            if metric_name in metrics:
+                                mv = metrics[metric_name]
+                                if isinstance(mv, dict) and 'mean' in mv:
+                                    corrupted_value = _to_float(mv.get('mean'))
+                                else:
+                                    corrupted_value = _to_float(mv)
+
+                                robustness = corrupted_value / baseline_value
+
+                                data.append({
+                                    'severity': severity,
+                                    'robustness': robustness
+                                })
+                        except ValueError:
+                            pass
+        return data
+
+    if corruption_type is not None:
+        # Plot single corruption type
+        data = calculate_robustness_data(corruption_type)
+        data = sorted(data, key=lambda x: x['severity'])
+
+        if not data:
+            print(f"Corruption '{corruption_type}' not found!")
+            return
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot([d['severity'] for d in data], [d['robustness'] for d in data],
+               marker='o', linewidth=2, markersize=10, label=corruption_type)
+        ax.axhline(y=1.0, color='green', linestyle='--', linewidth=2, label='Perfect Robustness (1.0)',
+                  alpha=0.7)
+        ax.set_xlabel('Severity', fontsize=12)
+        ax.set_ylabel('Robustness', fontsize=12)
+        ax.set_title(f"{corruption_type.replace('_', ' ').title()} - {metric_name.title()} Robustness",
+                    fontsize=14, fontweight='bold')
+        ax.grid(True, alpha=0.3)
+        ax.set_xticks(range(1, 6))
+        ax.legend(fontsize=11)
+
+    elif category is not None:
+        # Plot category
+        if category in categories_map:
+            corruptions = categories_map[category]
+        else:
+            print(f"Category '{category}' not found. Available: {list(categories_map.keys())}")
+            return
+
+        fig, ax = plt.subplots(figsize=(12, 7))
+
+        for corruption in corruptions:
+            data = calculate_robustness_data(corruption)
+            data = sorted(data, key=lambda x: x['severity'])
+            if data:
+                ax.plot([d['severity'] for d in data], [d['robustness'] for d in data],
+                       marker='o', linewidth=2, markersize=8, label=corruption.replace('_', ' ').title())
+
+        ax.axhline(y=1.0, color='green', linestyle='--', linewidth=2, label='Perfect Robustness (1.0)',
+                  alpha=0.7)
+        ax.set_xlabel('Severity', fontsize=12)
+        ax.set_ylabel('Robustness', fontsize=12)
+        ax.set_title(f"{category.title()} Corruptions - {metric_name.title()} Robustness",
+                    fontsize=14, fontweight='bold')
+        ax.grid(True, alpha=0.3)
+        ax.set_xticks(range(1, 6))
+        ax.legend(fontsize=10, loc='best')
+
+    else:
+        print("Please specify either 'corruption_type' or 'category'")
+        return
+
+    plt.tight_layout()
+    if corruption_type is not None:
+        filename = f"{corruption_type}_{metric_name}_robustness.png"
+    else:
+        filename = f"{category}_{metric_name}_robustness.png"
+    if save_path is None and save_dir is not None:
+        save_path = Path(save_dir) / filename
+    save_path = _prepare_plot_output(save_path, filename, subdir="robustness")
+
+    if save_path is not None:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Figure saved to {save_path}")
+
+    plt.show()
+
