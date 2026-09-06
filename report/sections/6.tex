@@ -1,0 +1,6 @@
+In questo progetto abbiamo analizzato  ImageNet-R e ImageNet-C per rilevare la presenza di drift di dati rispetto alla baseline offerta dal dataset ImageNet-1k. Abbiamo misurato il drift sia nelle feature visive che in quelle estratte dal modello ResNet50 in fase di classificazione, rispettivamente utilizzando la distanza di Wasserstein e Maximum Mean Discrepancy (MMD). Abbiamo inoltre misurato la degradazione delle performance del modello in presenza di drift di dati.
+Dai risultati ottenuti, possiamo notare che non sembra esistere una forte correlazione tra la presenza di drift nelle feature visive delle immagini e la presenza di drift nelle feature estratte nel modello. Abbiamo potuto notare che in presenza di un covariate shift dato dalla cambio di stile di rappresentazione dell'oggetto presente nell'immagine, il modello registra un calo drastico delle sue performance, arrivando ad aver un'accuratezza par a $0.3034$ e quindi registrando un decremento del $53.9\%$ rispetto alla baseline. Invece, nel caso di covariate shift introdotto da una sporcature delle immagini, le performance modello variano in base al tipo di sporcatura applicata: alcuni tipi 
+
+
+
+

@@ -531,6 +531,12 @@ Glass blur   & 0.369184 & 0.176186 & 0.904344 \\
   \caption{Degradazione dell'accuracy al variare della severità per corruzioni di tipo blur}
   \label{fig:blur_degradation}
 \end{figure}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/robustness/blur_accuracy_robustness.png}
+  \caption{Valore di robustness al variare della severità per corruzioni di tipo blur}
+  \label{fig:blur_robustness}
+\end{figure}
 Come si può notare dal grafico in figura \ref{fig:blur_degradation}, la degradazione dell'accuracy in generale cresce al variare della severity. Ciò è coerente con l'andamento dell'accuracy riportata in figura \ref{fig:blur_accuracy}. In particolare, il coefficiente $R^2$ calcolato per glass\_blur indica che la degradazione cresce meno linearmente rispetto agli altri tipi di blur. Infatti, si registra un aumento repentino della degradazione dalla severity 3. Inoltre, al livello di severity 5, il valore di accuracy per glass\_blur raggiunge un valore inferiore a $0.1$, infatti presenta una AUC della robustezza molto bassa. 
 D'altro canto, il coefficiente $R^2$ calcolato per zoom\_blur indica che la degradazione delle performance cresce linearmente con il livello di severity, indicando una correlazione tra degradazione e severità per questo tipo di sporcatura.
 \subsubsection{Digital}
@@ -562,6 +568,12 @@ Elastic transform  & 0.605682 & 0.153883 & 0.873604 \\
   \caption{Degradazione dell'accuracy al variare della severità per corruzioni di tipo digital}
   \label{fig:digital_degradation}
 \end{figure}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/robustness/digital_accuracy_robustness.png}
+  \caption{Valore di robustness al variare della severità per corruzioni di tipo digital}
+  \label{fig:digital_robustness}
+\end{figure}
 Come si può notare dal grafico in figura \ref{fig:digital_accuracy}, l'accuracy decresce con il livello di severità della corruzione eccezion fatta per elastic\_transform, la quale presenta un breve incremento dell'accuracy passando dal livello due al livello tre di severità. I risultati ottenuti si riflettono nei valori di robustezza del modello, presentati in figura \ref{fig:digital_degradation}. In particolare, la degradazione delle performance non segue affatto un andamento lineare per contrast e elastic\_transform, mentre per JPEG\_compression e pixelate sono più vicini ad un andamento lineare.
 \subsubsection{Noise}
 \begin{table}[htbp]
@@ -591,6 +603,12 @@ Impulse noise   & 0.482528 & 0.163862 & 0.970980 \\
   \caption{Degradazione dell'accuracy al variare della severità per corruzioni di tipo noise}
   \label{fig:noise_degradation}
 \end{figure}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/robustness/noise_accuracy_robustness.png}
+  \caption{Valore di robustness al variare della severità per corruzioni di tipo noise}
+  \label{fig:noise_robustness}
+\end{figure}
 Come si può notare dalla tabella \ref{tab:noise_corruption_metrics} e dalle figure \ref{fig:noise_accuracy} e \ref{fig:noise_degradation}, il calo di performance e l'aumento della degradazione seguono un andamento molti vicino ad un andamento lineare. Le performance del modello per questa classe di sporcatura calano molto al variare della severity, arrivando addirittura a un valore di quasi $0.1$ di accuratezza a livello di severità 5. I valori AUC riflettono questo calo, arrivando nel caso di impulse\_noise ad un valore inferiore a $0.5$.
 \subsubsection{Weather}
 \begin{table}[htbp]
@@ -619,5 +637,11 @@ Snow       & 0.503722 & 0.097529 & 0.865135 \\
   \includegraphics[width = \textwidth]{images/plot_metrics/degradation/weather_accuracy_degradation.png}
   \caption{Degradazione dell'accuracy al variare della severità per corruzioni di tipo weather}
   \label{fig:weather_degradation}
+\end{figure}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width = \textwidth]{images/plot_metrics/robustness/weather_accuracy_robustness.png}
+  \caption{Valore di robustness al variare della severità per corruzioni di tipo weather}
+  \label{fig:weather_robustness}
 \end{figure}
 Come si può notare dai valori in tabella \ref{tab:weather_corruption_metrics} e dalle figure \ref{fig:weather_accuracy} e \ref{fig:weather_degradation}, l'accuratezza registrata dal modello decresce per ogni tipo sporcatura e per ogni livello di severity. Tuttavia, il decremento dell'accuracy è decisamente meno marcato per brightness, su cui il modello riesce a mantenere performance relativamente elevate rispetto agli altri tipi di sporcatura, mantenendo anche un AUC della robustezza molto elevata. Inoltre, la degradazione delle performance per brightness segue un andamento quasi lineare ma con un'inclinazione bassa. Inoltre, nonostante il calo dell'accuracy, fog mantiene comunque un'AUC della robustezza moderatamente elevata, indicando quindi resistenza maggiore a questo tipo di sporcatura.
