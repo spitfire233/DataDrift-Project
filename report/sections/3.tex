@@ -2,7 +2,7 @@ Ogni tipo di modello di machine learning supervisionato può riscontrare, quando
 in contesti reali, un drift nelle distribuzioni dei dati osservati rispetto alla distribuzione
 osservata durante la fase di addestramento. In particolare, uno dei tipi di modello più diffuso per il riconoscimento
 delle immagini è quello che prende il nome di \textbf{rete neurale convolutiva} (Convolutional neural network, CNN).
-In questo capitolo, introdurremo il funzionamento delle CNN e descriveremo la variante
+In questo capitolo, introdurremo il funzionamento delle CNN e descriveremo l'architettura
 utilizzata per questo progetto, le \textbf{reti neurali residuali}.
 \section{Reti neurali convolutive}
 Le \textbf{reti neurali convolutive} furono per la prima volta introdotte nella loro
@@ -76,7 +76,7 @@ Le \textbf{reti neurali residuali} sono un'architettura per reti neurali profond
 La figura \ref{fig:residual_block} mostra un esempio di blocco residuale. Queste soluzioni portano ad ottenere reti più facili da ottimizzare rispetto alle reti neurali profonde tradizionali e in grado di trarre maggiore beneficio, in termini di accuratezza, dall'aumento della profondità.
 \subsection{ResNet50}
 I modelli sviluppati da He et al. in \cite{he_deep_2016} sono stati addestrati e valutati su ImageNet-1k. Uno di questi modelli è ResNet50, il quale viene utilizzato come modello per questo progetto.  
-Le versioni di rete residuale più profonde, tra cui ResNet50, adottano un blocco residuo differente rispetto a quello base a due layer utilizzato nelle versioni meno profonde: per contenere i tempi di addestramento, ogni funzione residuale $\mathcal{F}$ viene realizzata tramite tre layer convolutivi di dimensioni rispettivamente $1 \times 1$, $3 \times 3$ e $1 \times 1$, detti \textbf{layer di bottleneck}. Il primo e l'ultimo layer si occupano rispettivamente di ridurre e successivamente ricostruire le dimensioni dell'input, mentre il layer $3 \times 3$ centrale opera come un "collo di bottiglia" (\textit{bottleneck}), con dimensioni di input e output ridotte rispetto al resto del blocco. Questo cambiamento non comporta nessun aumento significativo della complessità computazionale, la quale simile rispetto all'implementazione a due blocchi. Un esempio di blocco "bottleneck" è mostrato in figura \ref{fig:bottleneck}
+Le versioni di rete residuale più profonde, tra cui ResNet50, adottano un blocco residuo differente rispetto a quello base a due layer utilizzato nelle versioni meno profonde: per contenere i tempi di addestramento, ogni funzione residuale $\mathcal{F}$ viene realizzata tramite tre layer convolutivi di dimensioni rispettivamente $1 \times 1$, $3 \times 3$ e $1 \times 1$, detti \textbf{layer di bottleneck}. Il primo e l'ultimo layer si occupano rispettivamente di ridurre e successivamente ricostruire le dimensioni dell'input, mentre il layer $3 \times 3$ centrale opera come un "collo di bottiglia" (\textit{bottleneck}), con dimensioni di input e output ridotte rispetto al resto del blocco. Questo cambiamento non comporta nessun aumento significativo della complessità computazionale, la quale resta simile rispetto all'implementazione a due blocchi. Un esempio di blocco "bottleneck" è mostrato in figura \ref{fig:bottleneck}
 \begin{figure}
     \centering
     \includegraphics[width = 0.65\textwidth]{images/bottleneck.PNG}
