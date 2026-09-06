@@ -14,9 +14,14 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{float}
 \usepackage[provide=*,italian]{babel}
-\usepackage[sorting=none]{biblatex}
+\usepackage[
+    backend=biber,
+    style=ieee,
+    sorting=none
+]{biblatex}
 \usepackage{csvsimple}
 \usepackage{csquotes}
+\usepackage{mathtools}
 \addbibresource{DriftArchiDati.bib}
 \newtheorem{definition}{Definizione}
 \theoremstyle{definition}

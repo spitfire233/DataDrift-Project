@@ -54,11 +54,32 @@ Lo scopo degli strati di pooling è quello di \textbf{ridurre le dimensioni spaz
 L'output di un layer di pooling sarà quindi una nuova \textbf{feature map} con dimensioni spaziali ridotte rispetto a quella in ingresso.  I layer di pooling sono generalmente posti tra due layer convolutivi e operano indipendentemente su ciascuna feature map. Combinando diversi layer convolutivi e di pooling, la rete può progressivamente estrarre caratteristiche sempre più complesse e di alto livello \cite{gu_recent_2018}.
 \subsubsection{Strati completamente connessi}
 % TODO: ricontrollare
-Come in una rete neurale tradizionale, gli strati completamente connessi si occupano di \textbf{combinare le informazioni provenienti dallo strato precedente}, collegando ciascun neurone a tutti i neuroni dello strato precedente. In questo modo, le caratteristiche estratte dai layer convolutivi vengono integrate per ottenere una rappresentazione globale dell'input \cite{gu_recent_2018}, che può essere successivamente utilizzata per effettuare la classificazione.
+Come in una rete neurale tradizionale, gli strati completamente connessi si occupano di \textbf{combinare le informazioni provenienti dallo strato precedente}, collegando ciascun neurone a tutti i neuroni dello strato precedente. In questo modo, le caratteristiche estratte dai layer convolutivi e vengono integrate per ottenere una rappresentazione globale dell'input \cite{gu_recent_2018}, che può essere successivamente utilizzata per effettuare la classificazione.
 \subsubsection{Strato di ouput}
 L'ultimo strato di una rete neurale convolutiva è lo strato di output, il quale si occupa di restituire il risultato della classificazione. Spesso, questo strato è rappresentato dall'operatore \textbf{softmax} oppure da una \textbf{SVM} \cite{gu_recent_2018}.
-\section{Reti residuali}
-
+\section{Reti neurali residuali}
+Le \textbf{reti neurali residuali} sono un'architettura per reti neurali profonde, proposto per la prima volta nel 2016 da He et al. \cite{he_deep_2016} e progettata per affrontare il problema della \textbf{degradazione}. Tale fenomeno si manifesta quando l'aumento della profondità della rete, ovvero del numero di layer, porta inizialmente a una saturazione dell'accuratezza e successivamente a un suo rapido decremento. Questo problema, inoltre, non è causato dall'overfitting, quindi aggiungere più layer alla rete porta ad un errore maggiore durante l'addestramento.  Per combattere questo fenomeno, le reti residuali adottano le seguenti soluzioni:
+\begin{itemize}
+    \item \textbf{Apprendimento residuale}: Consideriamo un insieme di layer di una rete neurale e supponiamo di voler fare in modo che essi apprendano un determinato mapping $\mathcal{H}(\boldsymbol{x})$, dove $\boldsymbol{x}$ rappresenta l'input fornito al primo dei layer considerati. Anziché apprendere direttamente il mapping desiderato, facciamo apprendere ai layer il \textbf{mapping residuale} $\mathcal{F}(\boldsymbol{x})$, definito come:
+    $$\mathcal{F}(\boldsymbol{x}) \coloneqq \mathcal{H}(\boldsymbol{x}) - \boldsymbol{x}$$
+    Di conseguenza, il mapping originale diventa:
+    $$\mathcal{H}(\boldsymbol{x}) = \mathcal{F}(\boldsymbol{x}) + \boldsymbol{x}$$
+    Questa riformulazione è giustificata dalla natura controintuitiva del problema della degradazione: la manifestazione di questo problema potrebbe indicare che i solver di ottimizzazione faticano ad approssimare l'identità componendo più layer non lineari. Riformulando il mapping in questo modo, l'ottimizzazione diventa più semplice: se il mapping ottimale è vicino all'identità, è sufficiente che i pesi dei layer tendano a zero.
+    \item \textbf{Identity shortcut connections}: Il mapping $\mathcal{F}(\boldsymbol{x}) + \boldsymbol{x}$ può essere realizzato da una rete dotata di "shortcut connections", ovvero connessioni che saltano uno o più layer della rete. Nel caso delle reti residuali, queste connessioni collegano semplicemente l'input di un gruppo di layer alla sua uscita, sommando l'identità $\boldsymbol{x}$ all'output dei layer.
+\end{itemize}
+\begin{figure}
+    \centering
+    \includegraphics[width = 0.55\textwidth]{images/resnet.png}
+    \caption{Esempio di blocco residuale. Da \cite{he_deep_2016}}
+    \label{fig:residual_block}
+\end{figure}
+La figura \ref{fig:residual_block} mostra un esempio di blocco residuale. Queste soluzioni portano ad ottenere reti più facili da ottimizzare rispetto alle reti neurali profonde tradizionali e in grado di trarre maggiore beneficio, in termini di accuratezza, dall'aumento della profondità.
 \subsection{ResNet50}
-
-
+I modelli sviluppati da He et al. in \cite{he_deep_2016} sono stati addestrati e valutati su ImageNet-1k. Uno di questi modelli è ResNet50, il quale viene utilizzato come modello per questo progetto.  
+Le versioni di rete residuale più profonde, tra cui ResNet50, adottano un blocco residuo differente rispetto a quello base a due layer utilizzato nelle versioni meno profonde: per contenere i tempi di addestramento, ogni funzione residuale $\mathcal{F}$ viene realizzata tramite tre layer convolutivi di dimensioni rispettivamente $1 \times 1$, $3 \times 3$ e $1 \times 1$, detti \textbf{layer di bottleneck}. Il primo e l'ultimo layer si occupano rispettivamente di ridurre e successivamente ricostruire le dimensioni dell'input, mentre il layer $3 \times 3$ centrale opera come un "collo di bottiglia" (\textit{bottleneck}), con dimensioni di input e output ridotte rispetto al resto del blocco. Questo cambiamento non comporta nessun aumento significativo della complessità computazionale, la quale simile rispetto all'implementazione a due blocchi. Un esempio di blocco "bottleneck" è mostrato in figura \ref{fig:bottleneck}
+\begin{figure}
+    \centering
+    \includegraphics[width = 0.65\textwidth]{images/bottleneck.PNG}
+    \caption{Confronto tra un blocco residuale e un blocco "bottleneck". Da \cite{he_deep_2016}}
+    \label{fig:bottleneck}
+\end{figure}
