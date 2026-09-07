@@ -36,7 +36,7 @@
 
 \begin{frame}{Il problema del Data Drift}
     \begin{itemize}
-        \item \textbf{Assunzione classica (i.i.d.)}: Nel machine learning si assume che i dati di test e di addestramento provengano dalla stessa distribuzione.
+        \item \textbf{Assunzione classica (i.i.d.)}: Nel machine learning si assume che i dati di test e di addestramento provengano dalla stessa distribuzione e che siano indipendenti.
         \item \textbf{Realtà operativa}: Spesso questa assunzione è disattesa. La distribuzione cambia nel tempo o nello spazio $\rightarrow$ \textbf{Data drift} o \textbf{Distribution shift}.
         \item \textbf{Conseguenza}: Calo significativo delle prestazioni del modello, anche senza alcuna modifica ai suoi pesi o all'architettura.
         \item \textbf{Obiettivo del progetto}: Quantificare l'effetto del drift sulle prestazioni dei modelli di classificazione d'immagini.
@@ -98,7 +98,7 @@
         \item Derivato dall'enorme ImageNet-21k (14.2M di immagini, mappatura su WordNet).
         \item \textbf{ImageNet-1k} contiene 1.000 classi specifiche poste alla base dell'albero gerarchico.
         \item Utilizzato originariamente per la competizione ILSVRC.
-        \item \textbf{Nel progetto}: Utilizziamo il validation set di 50.000 immagini come benchmark \textbf{in-distribution} per stabilire le prestazioni ottimali del modello.
+        \item \textbf{Nel progetto}: Utilizziamo il validation set di 50.000 immagini come benchmark \textbf{in-distribution} per stabilire le prestazioni ottimali del modello, ciò è possibile perché non è stato usato per fare fine tuning sui modelli.
     \end{itemize}
 \end{frame}
 
@@ -181,7 +181,7 @@
             \vspace{0.3cm}\\
             \textbf{Soluzione (Reti Residuali)}:
             \begin{itemize}
-                \item Apprendimento residuale: imparare la differenza $\mathcal{F}(x)$ invece della mappa completa.
+                \item Apprendimento residuale: impara il mapping $F(x) = H(x) - x$ invece di $H(x)$, dove $H(x)$ è il mapping desiderato.
                 \item Uso di \textbf{Identity shortcut connections}: connessioni che saltano uno o più layer, facilitando l'ottimizzazione.
             \end{itemize}
         \end{column}
@@ -199,10 +199,10 @@
 
 \begin{frame}{Pipeline di Testing e Preprocessing}
     \begin{itemize}
-        \item \textbf{Librerie}: Sviluppo in PyTorch, elaborazione dataset tramite HuggingFace e Arrow per l'efficienza. Evidenze di drift tramite \texttt{Evidently}.
-        \item \textbf{Filtro Dataset}: Per il test su ImageNet-R, ImageNet-1k è stato filtrato mantenendo solo le 200 classi in comune, per garantire un confronto paritario.
+        \item \textbf{Librerie}: Sviluppo in PyTorch, elaborazione dataset tramite HuggingFace e Arrow per l'efficienza. Evidenze di drift tramite \texttt{Evidently} (Wasserstein) e \texttt{Alibi detect} (MMD).
+        \item \textbf{Filtro Dataset}: Per il test su ImageNet-R, ImageNet-1k è stato filtrato mantenendo solo le 200 classi in comune, per garantire un confronto paritario. Mentre ImageNet-R è stato tagliato a 50 immagini per classe.
         \item \textbf{Inferenza}: Uso di \textbf{ResNet-50} con pesi pre-addestrati (senza fine-tuning). Rilevate predizioni ed estratte le feature del penultimo layer (\texttt{avgpool}).
-        \item \textbf{Metriche}: Calcolate Accuracy, Balanced Accuracy, Precision, Recall, F1, MCC e Cohen's Kappa su 5 ripetizioni con \textit{augmentation stocastica} per stimare gli Intervalli di Confidenza (Test $t$ di Welch).
+        \item \textbf{Metriche}: Calcolate Accuracy e top-5 Accuracy su 5 ripetizioni con \textit{augmentation stocastica} per stimare gli Intervalli di Confidenza (Test $t$ di Welch).
     \end{itemize}
 \end{frame}
 
@@ -217,7 +217,7 @@
         \vspace{0.3cm}
         \item \textbf{Sulle feature di rete}: Vettori a 2048 dimensioni estratti internamente dal modello.
         \begin{itemize}
-            \item Misurato tramite Test \textbf{Empirical MMD} (Maximum Mean Discrepancy, drift se p-value $< 0.05$).
+            \item Misurato tramite Test MMD (Maximum Mean Discrepancy, drift se p-value $< 0.05$).
         \end{itemize}
     \end{enumerate}
 \end{frame}
@@ -243,7 +243,7 @@
 \end{frame}
 
 \begin{frame}{Drift sulle Feature della Rete (MMD)}
-    Anche internamente al modello, ImageNet-R genera un forte \textbf{Drift Latente}.
+    Anche internamente al modello, ImageNet-R genera un forte drift.
     \vspace{0.5cm}
     \begin{table}[]
         \centering
@@ -261,11 +261,26 @@
         \item Coerente con il drift rilevato visivamente.
     \end{itemize}
 \end{frame}
-
 \begin{frame}{ImageNet-C: Drift Visivo - Categoria Blur}
+	\begin{columns}
+
+		\begin{column}{0.4\textwidth}
+			Valori della distanza di Wasserstein per le feature visive sulle corruzioni di tipo Blur (Motion, Zoom, Defocus, Glass, Frost).\\
+		\end{column}
+		\begin{column}{0.6\textwidth}
+		\begin{figure}
+			\centering
+			\includegraphics[width=0.75\textwidth,height=\textheight,keepaspectratio,trim={0 0 0 2cm},clip]{images/metrics/ImageNet-C/severity_curves/imagenet_c_severity_drift_blur.png}
+		\end{figure}
+		\end{column}
+	\end{columns}
+
+\end{frame}
+
+\begin{frame}{ImageNet-C: Drift Visivo - Categoria Blur, esempio: Glass Blur}
     \begin{columns}
         \begin{column}{0.4\textwidth}
-            \textbf{Distribuzioni Blur} (\textit{es. Glass Blur / Defocus}):
+            \textbf{Distribuzioni Blur} (\textit{es. Glass Blur}):
             \begin{itemize}
                 \item Luminosità e canali colore non presentano variazioni significative.
                 \item Il contrasto e la nitidezza subiscono un forte slittamento a causa della fusione dei bordi.
@@ -273,15 +288,30 @@
         \end{column}
         \begin{column}{0.6\textwidth}
             \centering
-            \includegraphics[width=\textwidth,height=0.9\textheight,keepaspectratio]{images/metrics/ImageNet-C/distributions_by_corruption/glass_blur.png}
+            \includegraphics[width=\textwidth,height=0.9\textheight,keepaspectratio,trim={0 0 0 0.8cm},clip]{images/metrics/ImageNet-C/distributions_by_corruption/glass_blur.png}
         \end{column}
     \end{columns}
 \end{frame}
-
 \begin{frame}{ImageNet-C: Drift Visivo - Categoria Noise}
+	\begin{columns}
+
+		\begin{column}{0.4\textwidth}
+			Valori della distanza di Wasserstein per le feature visive sulle corruzioni di tipo Noise (Gaussian, Shot, Impulse).\\
+		\end{column}
+		\begin{column}{0.6\textwidth}
+		\begin{figure}
+			\centering
+			\includegraphics[width=0.75\textwidth,height=\textheight,keepaspectratio,trim={0 0 0 2cm},clip]{images/metrics/ImageNet-C/severity_curves/imagenet_c_severity_drift_noise.png}
+		\end{figure}
+		\end{column}
+	\end{columns}
+
+\end{frame}
+
+\begin{frame}{ImageNet-C: Drift Visivo - Categoria Noise, esempio: Gaussian Noise}
     \begin{columns}
         \begin{column}{0.4\textwidth}
-            \textbf{Distribuzioni Noise} (\textit{es. Gaussian / Shot Noise}):
+            \textbf{Distribuzioni Noise} (\textit{es. Gaussian}):
             \begin{itemize}
                 \item Il rumore elettronico o termico altera pesantemente le alte frequenze.
                 \item La \textit{sharpness} schizza a valori elevatissimi (distanza di Wasserstein $> 4$) poiché il rumore viene scambiato per micro-bordi.
@@ -289,39 +319,65 @@
         \end{column}
         \begin{column}{0.6\textwidth}
             \centering
-            \includegraphics[width=\textwidth,height=0.9\textheight,keepaspectratio]{images/metrics/ImageNet-C/distributions_by_corruption/gaussian_noise.png}
+            \includegraphics[width=\textwidth,height=0.9\textheight,keepaspectratio,trim={0 0 0 0.8cm},clip]{images/metrics/ImageNet-C/distributions_by_corruption/gaussian_noise.png}
         \end{column}
     \end{columns}
 \end{frame}
-
 \begin{frame}{ImageNet-C: Drift Visivo - Categoria Weather}
+	\begin{columns}
+		\begin{column}{0.4\textwidth}
+			Valori della distanza di Wasserstein per le feature visive sulle corruzioni di tipo Weather (Fog, Snow, Rain, Brightness).\\
+		\end{column}
+		\begin{column}{0.6\textwidth}
+		\begin{figure}
+			\centering
+			\includegraphics[width=0.75\textwidth,height=\textheight,keepaspectratio,trim={0 0 0 2cm},clip]{images/metrics/ImageNet-C/severity_curves/imagenet_c_severity_drift_weather.png}
+		\end{figure}
+		\end{column}
+	\end{columns}
+\end{frame}
+\begin{frame}{ImageNet-C: Drift Visivo - Categoria Weather, esempio: Fog}
     \begin{columns}
         \begin{column}{0.4\textwidth}
-            \textbf{Distribuzioni Weather} (\textit{es. Fog / Snow}):
+            \textbf{Distribuzioni Weather} (\textit{es. Fog}):
             \begin{itemize}
                 \item La nebbia appiattisce il contrasto comprimendo le distribuzioni verso un grigio uniforme.
-                \item La neve altera la luminosità e crea picchi anomali di nitidezza grazie ai fiocchi definiti.
+                \item I canali colore tendono a convergere verso valori medi simili, riducendo la saturazione.
+                \item La nitidezza cala drasticamente a causa della fusione dei bordi.
             \end{itemize}
         \end{column}
         \begin{column}{0.6\textwidth}
             \centering
-            \includegraphics[width=\textwidth,height=0.9\textheight,keepaspectratio]{images/metrics/ImageNet-C/distributions_by_corruption/fog.png}
+            \includegraphics[width=\textwidth,height=0.9\textheight,keepaspectratio,trim={0 0 0 0.8cm},clip]{images/metrics/ImageNet-C/distributions_by_corruption/fog.png}
         \end{column}
     \end{columns}
 \end{frame}
 
 \begin{frame}{ImageNet-C: Drift Visivo - Categoria Digital}
+	\begin{columns}
+		\begin{column}{0.4\textwidth}
+			Valori della distanza di Wasserstein per le feature visive sulle corruzioni di tipo Digital (Contrast, Elastic Transform, JPEG Compression).\\
+		\end{column}
+		\begin{column}{0.6\textwidth}
+		\begin{figure}
+			\centering
+			\includegraphics[width=0.75\textwidth,height=\textheight,keepaspectratio,trim={0 0 0 2cm},clip]{images/metrics/ImageNet-C/severity_curves/imagenet_c_severity_drift_digital.png}
+		\end{figure}
+		\end{column}
+	\end{columns}
+\end{frame}
+\begin{frame}{ImageNet-C: Drift Visivo - Categoria Digital, esempio: Contrast}
     \begin{columns}
         \begin{column}{0.4\textwidth}
-            \textbf{Distribuzioni Digital} (\textit{es. Contrast / Elastic Transform}):
+            \textbf{Distribuzioni Digital} (\textit{es. Contrast}):
             \begin{itemize}
                 \item La manipolazione diretta del contrasto sposta radicalmente la metrica RMS contrast.
-                \item Le medie dei canali colore rimangono incredibilmente stabili nonostante la forte alterazione visiva.
+                \item Le medie dei canali colore rimangono stranamente stabili nonostante la forte alterazione visiva.
             \end{itemize}
         \end{column}
         \begin{column}{0.6\textwidth}
             \centering
-            \includegraphics[width=\textwidth,height=0.9\textheight,keepaspectratio]{images/metrics/ImageNet-C/distributions_by_corruption/contrast.png}
+            \includegraphics[width=\textwidth,height=0.9\textheight,keepaspectratio,trim={0 0 0 0.8cm},clip]{images/metrics/ImageNet-C/distributions_by_corruption/contrast.png}
         \end{column}
     \end{columns}
 \end{frame}
@@ -331,7 +387,7 @@
     \vspace{0.2cm}
     \begin{itemize}
         \item \textbf{Digital \& Noise}: Visivamente, il drift per le feature \textit{sharpness} e \textit{contrasto} è sempre alto, anche a severità 1 e 2.
-        \item \textbf{Reti Neurali}: Il test MMD \textbf{non} rileva drift sulle feature di \texttt{avgpool} per i primi livelli di severità per corruzioni come \textit{Contrast}, \textit{Motion Blur} o \textit{Gaussian Noise}. Per \textit{JPEG\_compression}, non rileva drift a nessuna severità.
+        \item \textbf{Reti Neurali}: Il test MMD \textbf{non} rileva drift sulle feature di \texttt{avgpool} per i primi livelli di severità per corruzioni come \textit{Contrast}, \textit{Motion Blur}, \textit{Brightness}, o \textit{Gaussian Noise}. Per \textit{JPEG\_compression}, non rileva drift a nessuna severità.
         \item \textbf{Significato}: Le caratteristiche utilizzate dalla rete per classificare sono fondamentalmente diverse da quelle estratte staticamente dai pixel dell'immagine.
     \end{itemize}
 \end{frame}
@@ -348,7 +404,6 @@
         \hline
         Accuracy            & 84.33\% & 30.34\% & 53.98\% & YES \\
         Top-5 accuracy      & 96.35\% & 45.72\% & 50.63\% & YES \\
-        F1 weighted         & 89.62\% & 41.78\% & 47.84\% & YES \\
         \hline
         \end{tabular}
     \end{table}
@@ -364,7 +419,7 @@
         \begin{column}{0.4\textwidth}
             \begin{itemize}
                 \item La degradazione cresce all'aumentare della severità per tutti i tipi di blur.
-                \item \textbf{Glass Blur} ha un crollo drastico non lineare (AUC bassissima: 0.369), portando l'accuratezza ben sotto il 10\% a severità 5.
+                \item \textbf{Glass Blur} ha un crollo drastico non lineare (AUC di Robustness bassissima: 0.369), portando l'accuratezza ben sotto il 10\% a severità 5.
                 \item \textbf{Zoom Blur} mostra il comportamento di degrado più lineare ($R^2 = 0.99$).
             \end{itemize}
         \end{column}
@@ -380,9 +435,9 @@
         \begin{column}{0.4\textwidth}
             \begin{itemize}
                 \item L'impatto del rumore è quasi lineare e gravissimo.
-                \item Ai primissimi livelli (1-2) il modello regge parzialmente (coerentemente con l'assenza temporanea di drift MMD).
-                \item A severità 5 l'accuratezza crolla irrimediabilmente a $\sim 10\%$.
-                \item \textbf{Impulse noise} risulta il peggiore della categoria (AUC 0.482).
+                \item Ai primissimi livelli (1-2) il modello regge parzialmente (coerentemente con l'assenza di drift MMD a quei livelli).
+                \item A severità 5 l'accuratezza crolla a $\sim 10\%$.
+                \item \textbf{Impulse noise} risulta il peggiore della categoria (AUC Robustness: 0.482).
             \end{itemize}
         \end{column}
         \begin{column}{0.6\textwidth}
@@ -397,8 +452,8 @@
         \begin{column}{0.4\textwidth}
             \begin{itemize}
                 \item Categoria con le performance mediamente più alte.
-                \item \textbf{JPEG} e \textbf{Contrast} mantengono accuratezze relativamente buone (AUC $>$ 0.73), il che si allinea perfettamente con l'assenza di drift MMD sulle feature interne a basse/medie severità.
-                \item \textbf{Elastic Transform} fa eccezione: dopo un andamento stabile crolla precipitosamente a severità 5.
+                \item \textbf{JPEG} e \textbf{Contrast} mantengono accuratezze relativamente buone (AUC Robustness $>$ 0.73), il che si allinea perfettamente con l'assenza di drift MMD sulle feature interne a basse/medie severità.
+                \item \textbf{Elastic Transform} fa eccezione: dopo un andamento irregolare crolla precipitosamente a severità 5.
             \end{itemize}
         \end{column}
         \begin{column}{0.6\textwidth}
@@ -413,9 +468,9 @@
         \begin{column}{0.4\textwidth}
             \begin{itemize}
                 \item Varianza notevole tra le diverse condizioni atmosferiche.
-                \item \textbf{Brightness} non impatta quasi per nulla il modello, mantenendo un'accuratezza altissima (AUC 0.899).
+                \item \textbf{Brightness} non impatta quasi per nulla il modello, mantenendo un'accuratezza altissima (AUC Robustness: 0.899).
                 \item Anche \textbf{Fog} (nebbia) si mantiene moderatamente robusta.
-                \item Al contrario, \textbf{Frost} e \textbf{Snow} distruggono le performance (AUC $\sim$ 0.50-0.57), probabilmente perché introducono artefatti fisici complessi (cristalli e occlusione) anziché soli cambi cromatici.
+                \item Al contrario, \textbf{Frost} e \textbf{Snow} distruggono le performance (AUC Robustness $\sim$ 0.50-0.57), probabilmente perché introducono artefatti fisici complessi (cristalli e occlusione) anziché soli cambi cromatici.
             \end{itemize}
         \end{column}
         \begin{column}{0.6\textwidth}
@@ -447,9 +502,9 @@
 \begin{frame}{Sviluppi Futuri}
     Possibili evoluzioni del progetto includono:
     \begin{itemize}
-        \item \textbf{Drift Temporale}: Analizzare ImageNet-V2, dataset campionato successivamente ma con logiche identiche a ImageNet originale, per testare la riproducibilità temporale e il natural shift.
-        \item \textbf{Altri Shift}: Ripetere l'analisi introducendo \textit{Prior Probability Shift} (classi sbilanciate artificialmente) o \textit{Concept Shift} (attacchi avversariali attivi).
-        \item \textbf{Architetture Alternative}: Valutare se modelli concettualmente diversi, come i \textbf{Vision Transformers (ViT)}, mostrino una robustezza superiore o diversa rispetto alle CNN in presenza dello stesso drift.
+        \item \textbf{Drift Temporale}: Analizzare ImageNet-V2, dataset campionato successivamente ma con logiche identiche a ImageNet originale, per testare la riproducibilità temporale e il temporal shift.
+        \item \textbf{Altri Shift}: Ripetere l'analisi introducendo \textit{Prior Probability Shift} o \textit{Concept Shift}.
+        \item \textbf{Architetture Alternative}: Valutare se modelli concettualmente diversi mostrino una robustezza superiore o diversa rispetto alle CNN in presenza dello stesso drift.
     \end{itemize}
 \end{frame}
 
