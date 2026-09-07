@@ -1,0 +1,2 @@
+In this folder you will find a script to run an MMD test on features extracted from a model.
+This is separate from the rest of the codebase because it requires an older version of numpy since alibi_detect does not support the latest versions of numpy.
